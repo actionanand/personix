@@ -275,9 +275,9 @@ public class MainActivity extends BridgeActivity {
     try (InputStream source = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) { byte[] buffer = new byte[8192]; int count; int total = 0; while ((count = source.read(buffer)) != -1) { total += count; if (total > maximum) throw new IllegalStateException("The page is too large to inspect safely."); output.write(buffer, 0, count); } return output.toByteArray(); }
   }
   private String meta(String html, String property) { String quoted = Pattern.quote(property); String[] expressions = { "<meta[^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"'][^>]+content=[\\\"']([^\\\"']*)[\\\"']", "<meta[^>]+content=[\\\"']([^\\\"']*)[\\\"'][^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"']" }; for (String expression : expressions) { Matcher match = Pattern.compile(expression, Pattern.CASE_INSENSITIVE).matcher(html); if (match.find()) return decode(match.group(1)); } return ""; }
-  private String title(String html) { Matcher match = Pattern.compile("<title[^>]*>([\\s\\S]*?)</title>", Pattern.CASE_INSENSITIVE).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
+  private String title(String html) { Matcher match = Pattern.compile("<title[^>]*>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
   private String icon(String html) { Matcher match = Pattern.compile("<link[^>]+rel=[\\\"'][^\\\"']*icon[^\\\"']*[\\\"'][^>]+href=[\\\"']([^\\\"']+)[\\\"']", Pattern.CASE_INSENSITIVE).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
-  private String decode(String value) { return value.replace("&amp;", "&").replace("&quot;", "\\\"").replace("&#39;", "'").replaceAll("\\s+", " ").trim(); }
+  private String decode(String value) { return value.replace("&amp;", "&").replace("&quot;", "\\\"").replace("&#39;", "'").replaceAll("\\\\s+", " ").trim(); }
   private String resolveUrl(URL base, String value) { if (value == null || value.isEmpty()) return ""; try { return new URL(base, value).toString(); } catch (Exception ignored) { return ""; } }
   private String first(String left, String right) { return left == null || left.isEmpty() ? right : left; }
 
