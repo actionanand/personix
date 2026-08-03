@@ -41,6 +41,13 @@ testem.log
 /typings
 __screenshots__/
 
+# Generated Android shell and release secrets
+/android/
+/release-keystore.jks
+/keystore.b64.txt
+*.jks
+*.keystore
+
 # System files
 .DS_Store
 Thumbs.db

@@ -1,44 +1,178 @@
-<style>
-  :host {
-    display: block;
-    min-height: 100dvh;
-    color: #17202a;
-    background: #f6f8fb;
-    font-family: Arial, Helvetica, sans-serif;
-  }
+@if (!store.ready()) {
+  <main class="splash-state" aria-live="polite">
+    <img ngSrc="personix.png" width="112" height="112" alt="" priority />
+    <div class="loader" aria-hidden="true"></div>
+    <p>Opening your private organiser…</p>
+  </main>
+} @else if (store.initializationError()) {
+  <main class="error-state">
+    <app-icon name="alert" />
+    <h1>Personix could not start</h1>
+    <p>{{ store.initializationError() }}</p>
+    <button type="button" class="button" (click)="store.initialize()">Try again</button>
+  </main>
+} @else if (store.locked()) {
+  <main class="lock-screen">
+    <section class="lock-card" aria-labelledby="lock-title">
+      <img ngSrc="personix.png" width="88" height="88" alt="Personix" priority />
+      <div class="lock-mark"><app-icon name="lock" /></div>
+      <h1 id="lock-title">Welcome back</h1>
+      <p>Enter your application PIN to open your private records.</p>
+      <form (ngSubmit)="unlock()">
+        <label for="unlock-pin">Application PIN</label>
+        <input
+          id="unlock-pin"
+          type="password"
+          inputmode="numeric"
+          maxlength="8"
+          autocomplete="current-password"
+          [formControl]="pin"
+        />
+        @if (unlockError()) {
+          <p class="field-error" role="alert">{{ unlockError() }}</p>
+        }
+        <button type="submit" class="button full" [disabled]="pin.invalid || unlocking()">
+          {{ unlocking() ? 'Checking…' : 'Unlock' }}
+        </button>
+      </form>
+      @if (store.settings().biometricEnabled) {
+        <button
+          type="button"
+          class="button secondary full"
+          [disabled]="unlocking()"
+          (click)="unlockBiometric()"
+        >
+          <app-icon name="biometric" /> Unlock with biometrics
+        </button>
+      }
+    </section>
+  </main>
+} @else {
+  <div class="app-shell">
+    <header class="app-header">
+      <a routerLink="/home" class="brand" aria-label="Personix home">
+        <img ngSrc="personix.png" width="40" height="40" alt="" priority />
+        <span><strong>Personix</strong><small>Private. Local. Yours.</small></span>
+      </a>
+      <div class="header-actions">
+        <a routerLink="/search" class="icon-button" aria-label="Search"
+          ><app-icon name="search"
+        /></a>
+        @if (store.settings().pin) {
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Lock Personix"
+            (click)="manualLock()"
+          >
+            <app-icon name="lock" />
+          </button>
+        }
+      </div>
+    </header>
 
-  main {
-    display: grid;
-    min-height: 100dvh;
-    place-items: center;
-    padding: 2rem;
-    text-align: center;
-  }
+    <main class="page-container"><router-outlet /></main>
 
-  .intro {
-    max-width: 36rem;
-  }
+    <button
+      type="button"
+      class="fab"
+      aria-label="Quick add"
+      [attr.aria-expanded]="quickAddOpen()"
+      (click)="quickAddOpen.set(true)"
+    >
+      <app-icon name="plus" />
+    </button>
 
-  h1 {
-    margin: 0;
-    font-size: clamp(2rem, 6vw, 4rem);
-    font-weight: 700;
-    line-height: 1.1;
-  }
+    <nav class="bottom-nav" aria-label="Primary navigation">
+      <a routerLink="/home" routerLinkActive="active"><app-icon name="home" /><span>Home</span></a>
+      <a routerLink="/content" routerLinkActive="active"
+        ><app-icon name="circle-play" /><span>Content</span></a
+      >
+      <a routerLink="/family" routerLinkActive="active"
+        ><app-icon name="family" /><span>Family</span></a
+      >
+      <a routerLink="/notes" routerLinkActive="active"
+        ><app-icon name="note" /><span>Notes</span></a
+      >
+      <button type="button" [class.active]="drawerOpen()" (click)="drawerOpen.set(true)">
+        <app-icon name="menu" /><span>More</span>
+      </button>
+    </nav>
 
-  p {
-    margin: 1rem 0 0;
-    color: #415164;
-    font-size: 1.125rem;
-    line-height: 1.6;
-  }
-</style>
+    @if (drawerOpen()) {
+      <button
+        type="button"
+        class="sheet-backdrop"
+        aria-label="Close navigation"
+        (click)="drawerOpen.set(false)"
+      ></button>
+      <aside class="bottom-sheet" aria-label="More navigation">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <h2>Everything in Personix</h2>
+        <nav>
+          <a routerLink="/vehicles" (click)="closeNavigation()"
+            ><span class="nav-icon"><app-icon name="car" /></span
+            ><span>Vehicles & References<small>Registration, make and expiry dates</small></span
+            ><app-icon name="chevron"
+          /></a>
+          <a routerLink="/checklists" (click)="closeNavigation()"
+            ><span class="nav-icon"><app-icon name="checklist" /></span
+            ><span>Checklists<small>Lightweight lists and todos</small></span
+            ><app-icon name="chevron"
+          /></a>
+          <a routerLink="/search" (click)="closeNavigation()"
+            ><span class="nav-icon"><app-icon name="search" /></span
+            ><span>Global Search<small>Search every module separately</small></span
+            ><app-icon name="chevron"
+          /></a>
+          <a routerLink="/backup" (click)="closeNavigation()"
+            ><span class="nav-icon"><app-icon name="backup" /></span
+            ><span>Encrypted Backup<small>Export or restore your local records</small></span
+            ><app-icon name="chevron"
+          /></a>
+          <a routerLink="/settings" (click)="closeNavigation()"
+            ><span class="nav-icon"><app-icon name="settings" /></span
+            ><span>Settings<small>Security, appearance and privacy</small></span
+            ><app-icon name="chevron"
+          /></a>
+        </nav>
+      </aside>
+    }
 
-<main>
-  <section class="intro" aria-labelledby="page-title">
-    <h1 id="page-title">personix</h1>
-    <p>A simple default project template ready to clone and build from.</p>
-  </section>
-</main>
+    @if (quickAddOpen()) {
+      <button
+        type="button"
+        class="sheet-backdrop"
+        aria-label="Close quick add"
+        (click)="quickAddOpen.set(false)"
+      ></button>
+      <aside class="bottom-sheet quick-sheet" aria-label="Quick add">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <h2>Quick add</h2>
+        <div class="quick-grid">
+          <a routerLink="/content" [queryParams]="{ add: 1 }" (click)="closeNavigation()"
+            ><app-icon name="link" />Save content</a
+          >
+          <a routerLink="/notes" [queryParams]="{ compose: 1 }" (click)="closeNavigation()"
+            ><app-icon name="note" />Add note</a
+          >
+          <a routerLink="/checklists" [queryParams]="{ add: 1 }" (click)="closeNavigation()"
+            ><app-icon name="checklist" />Checklist item</a
+          >
+          <a routerLink="/family" [queryParams]="{ add: 'family' }" (click)="closeNavigation()"
+            ><app-icon name="family" />Family member</a
+          >
+          <a routerLink="/family" [queryParams]="{ add: 'medical' }" (click)="closeNavigation()"
+            ><app-icon name="hospital" />Medical record</a
+          >
+          <a routerLink="/vehicles" [queryParams]="{ add: 1 }" (click)="closeNavigation()"
+            ><app-icon name="car" />Vehicle</a
+          >
+        </div>
+      </aside>
+    }
+  </div>
+}
 
-<router-outlet />
+<app-dialog />
+<app-snackbar />

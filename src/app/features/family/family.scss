@@ -1,0 +1,212 @@
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.eyebrow {
+  margin: 0;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.tabs {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding: 0.3rem 0 0.8rem;
+  scrollbar-width: none;
+}
+.tabs button {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  color: var(--muted);
+  background: var(--surface);
+}
+.tabs button.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.search {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
+}
+.search input {
+  border: 0 !important;
+  background: transparent !important;
+}
+.search app-icon {
+  color: var(--muted);
+}
+.records {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+.record {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.9rem;
+}
+.record-icon {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  place-items: center;
+  border-radius: 0.85rem;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.record h2 {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0;
+  font-size: 1rem;
+}
+.record h2 app-icon {
+  color: #d99a16;
+}
+.record p {
+  margin: 0.3rem 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.details span,
+.details button {
+  padding: 0.22rem 0.5rem;
+  border: 0;
+  border-radius: 2rem;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  font-size: 0.72rem;
+}
+.details .missing {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+}
+.record-actions {
+  display: flex;
+}
+.blood-badge {
+  display: grid;
+  min-width: 3.8rem;
+  min-height: 2.8rem;
+  place-items: center;
+  padding: 0.35rem;
+  border-radius: 0.8rem;
+  color: #fff;
+  background: #9a2e47;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.medical-note {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+  border-radius: 0.9rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.editor-backdrop {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 13, 8, 0.62);
+}
+.editor {
+  position: fixed;
+  z-index: 71;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(100%, 42rem);
+  overflow: auto;
+  padding: 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.editor header {
+  position: sticky;
+  z-index: 2;
+  top: -1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -1rem -1rem 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.editor h2 {
+  margin: 0;
+}
+.editor form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.editor label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.wide {
+  grid-column: 1/-1;
+}
+.check {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-block: 0.8rem;
+}
+@media (max-width: 38rem) {
+  .page-heading {
+    display: grid;
+  }
+  .page-heading .button {
+    width: 100%;
+  }
+  .tabs button span {
+    display: none;
+  }
+  .tabs button {
+    padding: 0.7rem;
+  }
+  .editor form {
+    grid-template-columns: 1fr;
+  }
+  .wide {
+    grid-column: 1;
+  }
+}

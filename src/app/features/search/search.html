@@ -1,0 +1,219 @@
+<header>
+  <p class="eyebrow">Global search</p>
+  <h1 class="page-title">Find it across Personix</h1>
+  <p class="page-subtitle">
+    Results stay grouped by module. Hidden adult content is never included.
+  </p>
+</header>
+<form class="search-box card" (ngSubmit)="search()">
+  <app-icon name="search" /><label class="visually-hidden" for="global-query">Search Personix</label
+  ><input
+    id="global-query"
+    type="search"
+    [formControl]="query"
+    placeholder="Names, notes, OP number, registration…"
+  /><app-select-picker
+    [formControl]="scope"
+    [options]="scopeOptions"
+    sheetTitle="Search scope"
+    placeholder="Search scope"
+  /><button type="submit" class="button" [disabled]="!query.value.trim() || loading()">
+    {{ loading() ? 'Searching…' : 'Search' }}
+  </button>
+</form>
+@if (searched()) {
+  <p class="result-count">{{ total() }} local result{{ total() === 1 ? '' : 's' }}</p>
+  <div class="groups">
+    @if (content().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="link" /></span>
+          <div>
+            <h2>Saved Content</h2>
+            <p>{{ content().length }} results</p>
+          </div>
+          <a routerLink="/content">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of content(); track item.id) {
+            <a routerLink="/content"
+              ><strong>{{ item.title || item.ogTitle || item.domain }}</strong
+              ><small>{{ item.platform }} · {{ item.url }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (members().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="family" /></span>
+          <div>
+            <h2>Family Members</h2>
+            <p>{{ members().length }} results</p>
+          </div>
+          <a routerLink="/family">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of members(); track item.id) {
+            <a routerLink="/family"
+              ><strong>{{ item.name }}</strong
+              ><small>{{ item.relationship }} · {{ item.phone }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (hospitals().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="hospital" /></span>
+          <div>
+            <h2>Hospital OP Records</h2>
+            <p>{{ hospitals().length }} results</p>
+          </div>
+          <a routerLink="/family">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of hospitals(); track item.id) {
+            <a routerLink="/family"
+              ><strong>{{ item.hospitalName }} · {{ item.patientName }}</strong
+              ><small>{{ item.opNumber || 'OP number not provided' }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (insurance().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="insurance" /></span>
+          <div>
+            <h2>Medical Insurance</h2>
+            <p>{{ insurance().length }} results</p>
+          </div>
+          <a routerLink="/family">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of insurance(); track item.id) {
+            <a routerLink="/family"
+              ><strong>{{ item.providerName }}</strong
+              ><small
+                >{{ item.policyNumber || 'Policy number not recorded' }} · {{ item.tpaName }}</small
+              ></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (items().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="medicine" /></span>
+          <div>
+            <h2>Medicines & Toiletries</h2>
+            <p>{{ items().length }} results</p>
+          </div>
+          <a routerLink="/family">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of items(); track item.id) {
+            <a routerLink="/family"
+              ><strong>{{ item.name }}</strong
+              ><small>{{ item.itemType }} · {{ item.usedFor }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (blood().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="blood" /></span>
+          <div>
+            <h2>Blood Groups</h2>
+            <p>{{ blood().length }} results</p>
+          </div>
+          <a routerLink="/family">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of blood(); track item.id) {
+            <a routerLink="/family"
+              ><strong>{{ item.personName }}</strong
+              ><small>{{
+                item.bloodGroup === 'Unknown' ? 'Blood group not recorded' : item.bloodGroup
+              }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (vehicles().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="car" /></span>
+          <div>
+            <h2>Vehicles</h2>
+            <p>{{ vehicles().length }} results</p>
+          </div>
+          <a routerLink="/vehicles">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of vehicles(); track item.id) {
+            <a routerLink="/vehicles"
+              ><strong>{{ item.nickname }} · {{ item.registrationNumber }}</strong
+              ><small>{{ item.make }} {{ item.model }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (notes().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="note" /></span>
+          <div>
+            <h2>Notes</h2>
+            <p>{{ notes().length }} results</p>
+          </div>
+          <a routerLink="/notes">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of notes(); track item.id) {
+            <a routerLink="/notes"
+              ><strong>{{ item.text }}</strong
+              ><small>{{ item.createdAt }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (checklists().length) {
+      <section class="group card">
+        <header>
+          <span><app-icon name="checklist" /></span>
+          <div>
+            <h2>Checklists</h2>
+            <p>{{ checklists().length }} results</p>
+          </div>
+          <a routerLink="/checklists">View module</a>
+        </header>
+        <div class="rows">
+          @for (item of checklists(); track item.id) {
+            <a routerLink="/checklists"
+              ><strong>{{ item.title }}</strong
+              ><small>{{ item.description }}</small></a
+            >
+          }
+        </div>
+      </section>
+    }
+    @if (!total()) {
+      <section class="empty-state card">
+        <app-icon name="search" />
+        <h2>No results found</h2>
+        <p>Try fewer words or choose All modules.</p>
+      </section>
+    }
+  </div>
+}

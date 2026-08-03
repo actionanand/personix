@@ -1,0 +1,113 @@
+<header class="page-heading">
+  <div>
+    <p class="eyebrow">Temporary notes</p>
+    <h1 class="page-title">A private chat with yourself</h1>
+    <p class="page-subtitle">
+      Quick thoughts stay chronological, searchable and easy to delete later.
+    </p>
+  </div>
+</header>
+<section class="search">
+  <app-icon name="search" /><input
+    type="search"
+    aria-label="Search note text"
+    placeholder="Find missing text…"
+    [formControl]="searchControl"
+    (input)="load(true)"
+  />
+</section>
+<section class="chat card" aria-label="Personal notes">
+  @if (loading() && !notes().length) {
+    <div class="empty-state">
+      <div class="loader"></div>
+      <p>Opening notes…</p>
+    </div>
+  }
+  @for (note of notes(); track note.id; let index = $index) {
+    @if (showDate(index)) {
+      <div class="date-separator">
+        <span>{{ note.createdAt | date: 'mediumDate' }}</span>
+      </div>
+    }
+    <article class="message" [class.pinned]="note.pinned">
+      @if (note.pinned) {
+        <span class="pin"><app-icon name="star" /> Pinned</span>
+      }
+      <p>
+        @for (part of segments(note.text); track $index) {
+          @if (part.match) {
+            <mark>{{ part.text }}</mark>
+          } @else {
+            {{ part.text }}
+          }
+        }
+      </p>
+      <footer>
+        <time [attr.datetime]="note.createdAt">{{ note.createdAt | date: 'shortTime' }}</time>
+        @if (note.updatedAt !== note.createdAt) {
+          <span>edited</span>
+        }
+        <div class="message-actions">
+          <button type="button" aria-label="Copy note" (click)="copy(note)">
+            <app-icon name="copy" /></button
+          ><button
+            type="button"
+            [attr.aria-label]="note.pinned ? 'Unpin note' : 'Pin note'"
+            (click)="togglePin(note)"
+          >
+            <app-icon name="star" /></button
+          ><button type="button" aria-label="Edit note" (click)="edit(note)">
+            <app-icon name="edit" /></button
+          ><button type="button" aria-label="Archive note" (click)="archive(note)">
+            <app-icon name="archive" /></button
+          ><button
+            type="button"
+            aria-label="Delete note"
+            class="danger-text"
+            (click)="remove(note)"
+          >
+            <app-icon name="trash" />
+          </button>
+        </div>
+      </footer>
+    </article>
+  } @empty {
+    @if (!loading()) {
+      <div class="empty-state">
+        <app-icon name="note" />
+        <h2>{{ searchControl.value ? 'No matching notes' : 'Your note stream is empty' }}</h2>
+        <p>
+          {{
+            searchControl.value
+              ? 'Try different or fewer words.'
+              : 'Write anything below. A title is never required.'
+          }}
+        </p>
+      </div>
+    }
+  }
+  @if (nextCursor()) {
+    <button
+      type="button"
+      class="button secondary load-more"
+      [disabled]="loading()"
+      (click)="load(false)"
+    >
+      {{ loading() ? 'Loading…' : 'Load earlier notes' }}
+    </button>
+  }
+</section>
+<form class="composer card" (ngSubmit)="save()">
+  <label class="visually-hidden" for="note-composer">Write a note</label
+  ><textarea
+    #composerElement
+    id="note-composer"
+    [formControl]="composer"
+    rows="1"
+    placeholder="Write something to remember…"
+    (keydown.control.enter)="save()"
+  ></textarea
+  ><button type="submit" class="button" [disabled]="composer.invalid">
+    <app-icon name="save" /><span>Save</span>
+  </button>
+</form>

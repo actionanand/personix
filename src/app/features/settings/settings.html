@@ -1,0 +1,329 @@
+<header>
+  <p class="eyebrow">Settings</p>
+  <h1 class="page-title">Privacy, protection & preferences</h1>
+  <p class="page-subtitle">
+    Every setting is stored in the local Personix database—never browser localStorage.
+  </p>
+</header>
+<div class="settings-layout">
+  <section class="setting-section card">
+    <header>
+      <span><app-icon name="lock" /></span>
+      <div>
+        <h2>Security</h2>
+        <p>Application lock and Android biometrics</p>
+      </div>
+    </header>
+    <div class="setting-list">
+      <button type="button" (click)="securityPanel.set(store.settings().pin ? 'change' : 'set')">
+        <span
+          ><strong>Application PIN</strong
+          ><small>{{
+            store.settings().pin
+              ? 'Enabled · salted, derived verifier only'
+              : 'Protect Personix with a 4–8 digit PIN'
+          }}</small></span
+        ><em>{{ store.settings().pin ? 'On' : 'Off' }}</em
+        ><app-icon name="chevron" />
+      </button>
+      <button type="button" [disabled]="!native.isAndroid()" (click)="toggleBiometric()">
+        <span
+          ><strong>Fingerprint / biometric unlock</strong
+          ><small>{{
+            native.isAndroid()
+              ? store.settings().pin
+                ? 'PIN remains available as fallback'
+                : 'Set a PIN first'
+              : 'Available in the Android app'
+          }}</small></span
+        ><em>{{ store.settings().biometricEnabled ? 'On' : 'Off' }}</em
+        ><app-icon name="chevron" />
+      </button>
+      <label class="row"
+        ><span><strong>Auto-lock timeout</strong><small>Lock after inactivity</small></span
+        ><app-select-picker
+          [value]="store.settings().autoLockMinutes.toString()"
+          (valueChange)="updateNumber('autoLockMinutes', $event)"
+          [options]="autoLockOptions"
+          sheetTitle="Auto-lock timeout"
+          compact
+      /></label>
+      <label class="row"
+        ><span
+          ><strong>Lock in background</strong
+          ><small>Lock when Personix leaves the foreground</small></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().lockInBackground"
+          (change)="store.updateSettings({ lockInBackground: $any($event.target).checked })"
+      /></label>
+    </div>
+    @if (securityPanel() !== 'none') {
+      <form class="inline-panel" [formGroup]="pinForm" (ngSubmit)="savePin()">
+        <h3>{{ store.settings().pin ? 'Change application PIN' : 'Enable application PIN' }}</h3>
+        @if (store.settings().pin) {
+          <label
+            >Current PIN<input
+              type="password"
+              inputmode="numeric"
+              maxlength="8"
+              formControlName="current"
+              autocomplete="current-password"
+          /></label>
+        }
+        <label
+          >New PIN<input
+            type="password"
+            inputmode="numeric"
+            maxlength="8"
+            formControlName="next"
+            autocomplete="new-password" /></label
+        ><label
+          >Confirm new PIN<input
+            type="password"
+            inputmode="numeric"
+            maxlength="8"
+            formControlName="confirm"
+            autocomplete="new-password"
+        /></label>
+        <div>
+          <button type="button" class="button secondary" (click)="securityPanel.set('none')">
+            Cancel
+          </button>
+          @if (store.settings().pin) {
+            <button type="button" class="button ghost danger-text" (click)="removePin()">
+              Remove PIN
+            </button>
+          }
+          <button type="submit" class="button" [disabled]="busy()">Save PIN</button>
+        </div>
+      </form>
+    }
+  </section>
+  <section class="setting-section card">
+    <header>
+      <span><app-icon name="sun" /></span>
+      <div>
+        <h2>Appearance</h2>
+        <p>Premium green in light, dark or system mode</p>
+      </div>
+    </header>
+    <div class="theme-grid">
+      <button
+        type="button"
+        [class.selected]="store.settings().theme === 'light'"
+        (click)="selectTheme('light')"
+      >
+        <app-icon name="sun" />Light
+        @if (store.settings().theme === 'light') {
+          <app-icon name="check" />
+        }</button
+      ><button
+        type="button"
+        [class.selected]="store.settings().theme === 'dark'"
+        (click)="selectTheme('dark')"
+      >
+        <app-icon name="moon" />Dark
+        @if (store.settings().theme === 'dark') {
+          <app-icon name="check" />
+        }</button
+      ><button
+        type="button"
+        [class.selected]="store.settings().theme === 'automatic'"
+        (click)="selectTheme('automatic')"
+      >
+        <app-icon name="settings" />System
+        @if (store.settings().theme === 'automatic') {
+          <app-icon name="check" />
+        }
+      </button>
+    </div>
+  </section>
+  <section class="setting-section card">
+    <header>
+      <span><app-icon name="globe" /></span>
+      <div>
+        <h2>Metadata fetching</h2>
+        <p>Control when a URL can leave the app</p>
+      </div>
+    </header>
+    <div class="setting-list">
+      <label class="row"
+        ><span
+          ><strong>Android direct fetching</strong
+          ><small>Fetched on-device; missing post previews sync automatically</small></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().androidMetadataEnabled"
+          (change)="
+            store.updateSettings({ androidMetadataEnabled: $any($event.target).checked })
+          " /></label
+      ><label class="row"
+        ><span
+          ><strong>Browser third-party fetching</strong
+          ><small>Off by default; when enabled, URLs are sent only to api.microlink.io</small></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().browserMetadataEnabled"
+          (change)="toggleBrowserMetadata($any($event.target).checked)" /></label
+      ><label class="row"
+        ><span
+          ><strong>Refresh automatically</strong
+          ><small>Refresh after saving or editing</small></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().autoRefreshMetadata"
+          (change)="
+            store.updateSettings({ autoRefreshMetadata: $any($event.target).checked })
+          " /></label
+      ><label class="row"
+        ><span
+          ><strong>Download OG images locally</strong
+          ><small>Include under configured size limit</small></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().downloadOgImages"
+          (change)="
+            store.updateSettings({ downloadOgImages: $any($event.target).checked })
+          " /></label
+      ><label class="row"
+        ><span><strong>Timeout</strong><small>Maximum metadata request time</small></span
+        ><app-select-picker
+          [value]="store.settings().metadataTimeoutMs.toString()"
+          (valueChange)="updateNumber('metadataTimeoutMs', $event)"
+          [options]="timeoutOptions"
+          sheetTitle="Metadata timeout"
+          compact /></label
+      ><label class="row"
+        ><span
+          ><strong>Maximum image size</strong
+          ><small>Upper limit for a downloaded preview</small></span
+        ><app-select-picker
+          [value]="store.settings().maxMetadataImageBytes.toString()"
+          (valueChange)="updateNumber('maxMetadataImageBytes', $event)"
+          [options]="imageSizeOptions"
+          sheetTitle="Maximum image size"
+          compact
+      /></label>
+    </div>
+  </section>
+  <section class="setting-section card">
+    <header>
+      <span class="adult"><app-icon name="shield-alert" /></span>
+      <div>
+        <h2>Adult content</h2>
+        <p>Hidden everywhere by default, including thumbnails</p>
+      </div>
+    </header>
+    <div class="setting-list">
+      <label class="row"
+        ><span
+          ><strong>Show adult content</strong
+          ><small
+            >Requires confirmation
+            @if (store.settings().pin) {
+              and your PIN
+            }
+          </small></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().showAdultContent"
+          (change)="toggleAdult($any($event.target).checked)" /></label
+      ><button type="button" class="destructive-row" (click)="deleteAdult()">
+        <span
+          ><strong>Delete all adult content</strong
+          ><small
+            >{{ adultCount() }} record{{ adultCount() === 1 ? '' : 's' }} · includes local images
+            and attachments</small
+          ></span
+        ><app-icon name="trash" />
+      </button>
+    </div>
+  </section>
+  <section class="setting-section card">
+    <header>
+      <span><app-icon name="note" /></span>
+      <div>
+        <h2>Notes & checklists</h2>
+        <p>Pagination and lightweight-list defaults</p>
+      </div>
+    </header>
+    <div class="setting-list">
+      <label class="row"
+        ><span><strong>Note page size</strong><small>Incremental messages per load</small></span
+        ><app-select-picker
+          [value]="store.settings().notePageSize.toString()"
+          (valueChange)="updateNumber('notePageSize', $event)"
+          [options]="notePageOptions"
+          sheetTitle="Note page size"
+          compact /></label
+      ><label class="row"
+        ><span><strong>Show archived notes</strong></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().showArchivedNotes"
+          (change)="
+            store.updateSettings({ showArchivedNotes: $any($event.target).checked })
+          " /></label
+      ><label class="row"
+        ><span><strong>Hide completed by default</strong></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().hideCompletedChecklistItems"
+          (change)="
+            store.updateSettings({ hideCompletedChecklistItems: $any($event.target).checked })
+          " /></label
+      ><label class="row"
+        ><span><strong>Confirm before clearing completed</strong></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().confirmClearCompleted"
+          (change)="store.updateSettings({ confirmClearCompleted: $any($event.target).checked })"
+      /></label>
+    </div>
+  </section>
+  <section class="setting-section card">
+    <header>
+      <span><app-icon name="family" /></span>
+      <div>
+        <h2>Family & backup</h2>
+        <p>Name display and encrypted export defaults</p>
+      </div>
+    </header>
+    <div class="setting-list">
+      <label class="row"
+        ><span><strong>Rasi display</strong></span
+        ><app-select-picker
+          [value]="store.settings().rasiDisplay"
+          (valueChange)="updateNameDisplay('rasiDisplay', $event)"
+          [options]="nameDisplayOptions"
+          sheetTitle="Rasi display"
+          compact /></label
+      ><label class="row"
+        ><span><strong>Nakshatra display</strong></span
+        ><app-select-picker
+          [value]="store.settings().nakshatraDisplay"
+          (valueChange)="updateNameDisplay('nakshatraDisplay', $event)"
+          [options]="nameDisplayOptions"
+          sheetTitle="Nakshatra display"
+          compact /></label
+      ><label class="row"
+        ><span><strong>Include downloaded images</strong></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().includeImagesInBackup"
+          (change)="
+            store.updateSettings({ includeImagesInBackup: $any($event.target).checked })
+          " /></label
+      ><label class="row"
+        ><span><strong>Include attachments</strong></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().includeAttachmentsInBackup"
+          (change)="
+            store.updateSettings({ includeAttachmentsInBackup: $any($event.target).checked })
+          "
+      /></label>
+    </div>
+  </section>
+</div>

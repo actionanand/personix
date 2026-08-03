@@ -1,0 +1,126 @@
+<header>
+  <p class="eyebrow">Checklists</p>
+  <h1 class="page-title">Small lists, fewer loose ends</h1>
+  <p class="page-subtitle">Intentionally lightweight—just lists, due dates and completion.</p>
+</header>
+<div class="layout">
+  <aside class="list-panel card">
+    <form (ngSubmit)="addList()">
+      <label class="visually-hidden" for="list-title">New checklist title</label
+      ><input id="list-title" [formControl]="listTitle" placeholder="New checklist…" /><button
+        type="submit"
+        class="icon-button"
+        aria-label="Create checklist"
+      >
+        <app-icon name="plus" />
+      </button>
+    </form>
+    <nav aria-label="Your checklists">
+      @for (list of lists(); track list.id) {
+        <button type="button" [class.active]="selected()?.id === list.id" (click)="select(list)">
+          <app-icon name="checklist" /><span>{{ list.title }}</span
+          ><app-icon name="chevron" />
+        </button>
+      } @empty {
+        <p>Create your first checklist above.</p>
+      }
+    </nav>
+  </aside>
+  <section class="items-panel card">
+    @if (selected(); as list) {
+      <header>
+        <div>
+          <h2>{{ list.title }}</h2>
+          <p>{{ items().length }} items · {{ progress() }}% complete</p>
+        </div>
+        <div>
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Duplicate checklist"
+            (click)="duplicate()"
+          >
+            <app-icon name="copy" /></button
+          ><button
+            type="button"
+            class="icon-button"
+            aria-label="Archive checklist"
+            (click)="archive()"
+          >
+            <app-icon name="archive" />
+          </button>
+        </div>
+      </header>
+      <div
+        class="progress"
+        role="progressbar"
+        aria-label="Checklist completion"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        [attr.aria-valuenow]="progress()"
+      >
+        <span [style.width.%]="progress()"></span>
+      </div>
+      <form class="add-item" (ngSubmit)="addItem()">
+        <label class="visually-hidden" for="item-text">New item</label
+        ><input id="item-text" [formControl]="itemText" placeholder="Add an item…" /><button
+          type="submit"
+          class="button"
+          [disabled]="itemText.invalid"
+        >
+          <app-icon name="plus" /> Add
+        </button>
+      </form>
+      <div class="items">
+        @for (item of visibleItems(); track item.id) {
+          <article [class.completed]="item.completed">
+            <button
+              type="button"
+              class="check-button"
+              [attr.aria-label]="item.completed ? 'Mark incomplete' : 'Mark complete'"
+              (click)="toggle(item)"
+            >
+              @if (item.completed) {
+                <app-icon name="check" />
+              }</button
+            ><span>{{ item.text }}</span
+            ><button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete item"
+              (click)="removeItem(item)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </article>
+        } @empty {
+          <div class="empty-state">
+            <app-icon name="checklist" />
+            <p>
+              {{ items().length ? 'Completed items are hidden.' : 'Add the first item above.' }}
+            </p>
+          </div>
+        }
+      </div>
+      <footer>
+        <label
+          ><input
+            type="checkbox"
+            [checked]="store.settings().hideCompletedChecklistItems"
+            (change)="
+              store.updateSettings({ hideCompletedChecklistItems: $any($event.target).checked })
+            "
+          />
+          Hide completed</label
+        ><button type="button" class="button ghost danger-text" (click)="clearCompleted()">
+          Clear completed
+        </button>
+      </footer>
+    } @else {
+      <div class="empty-state">
+        <app-icon name="checklist" />
+        <h2>Select or create a checklist</h2>
+      </div>
+    }
+  </section>
+</div>

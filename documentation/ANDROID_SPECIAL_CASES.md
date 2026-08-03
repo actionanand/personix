@@ -1,0 +1,25 @@
+# Android splash, system bars, metadata and biometrics
+
+## Branded cold-start splash
+
+Android 12 draws its launch surface before Angular or Capacitor can run. `scripts/patch-android.mjs` assigns `AppTheme.NoActionBarLaunch`, copies the transparent `public/personix.png`, and uses the same logo on a `#07140F` native overlay until Angular finishes database initialisation. Test force-stopped cold launches on Android 12+ and one older supported device in portrait and landscape.
+
+## Light and dark system bars
+
+Angular resolves Light, Dark or Automatic mode and calls the `PersonixSystemBars` bridge. Native code changes the status bar, navigation bar, decor view and WebView together. Light mode uses dark system icons; dark mode uses white system icons. The style is reapplied on resume and window focus.
+
+Notification small icons, if local notifications are added later, must be monochrome white vector artwork on transparency. Do not use the full-colour launcher image as a notification small icon.
+
+## Android direct Open Graph metadata
+
+The `PersonixMetadata` native bridge accepts only HTTP or HTTPS URLs, applies connect/read timeouts, follows redirects, stores the resolved URL, rejects non-HTML responses, and limits HTML reads to 1 MiB. Errors never prevent a record from being saved. Missing post previews synchronise on the Content screen when Android direct fetching is enabled. Browser third-party metadata remains a separate explicit opt-in and uses only `https://api.microlink.io/`.
+
+## Biometric unlock
+
+Biometrics can be enabled only after an application PIN exists. AndroidX Biometric requires an enrolled strong biometric. The PIN is encrypted with AES-GCM under a non-exportable Android Keystore key that requires biometric authentication for every use and is invalidated when biometric enrollment changes. The salted PIN verifier stays available as a fallback.
+
+The biometric system prompt cannot be styled by Angular. Cancellation leaves the app locked. If enrollment invalidates the key, unlock with the PIN and enable biometric login again.
+
+## Permissions
+
+Personix does not request contacts, call-log, SMS or broad storage permissions. Camera or document access must be requested only when a user explicitly adds a photo/attachment or selects a backup.

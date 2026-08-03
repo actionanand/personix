@@ -1,0 +1,106 @@
+<header>
+  <p class="eyebrow">Data portability</p>
+  <h1 class="page-title">Encrypted backup & restore</h1>
+  <p class="page-subtitle">
+    AES-GCM encryption protects a versioned local export. Your application PIN, biometric credential
+    and Keystore keys are never included.
+  </p>
+</header>
+<div class="backup-grid">
+  <section class="backup-card card">
+    <div class="card-icon"><app-icon name="download" /></div>
+    <h2>Create encrypted backup</h2>
+    <p>Choose modules and protect the file with a separate backup password.</p>
+    <form [formGroup]="backupForm" (ngSubmit)="create()">
+      <fieldset>
+        <legend>Include modules</legend>
+        <label><input type="checkbox" formControlName="content" /> Saved Content & metadata</label
+        ><label><input type="checkbox" formControlName="familyHealth" /> Family & Health</label
+        ><label><input type="checkbox" formControlName="vehicles" /> Vehicles</label
+        ><label><input type="checkbox" formControlName="notes" /> Notes</label
+        ><label><input type="checkbox" formControlName="checklists" /> Checklists</label
+        ><label
+          ><input type="checkbox" formControlName="settings" /> Settings (security excluded)</label
+        >
+      </fieldset>
+      <label class="password"
+        >Backup password<input
+          type="password"
+          formControlName="password"
+          autocomplete="new-password"
+          placeholder="At least 8 characters" /></label
+      ><button type="submit" class="button full" [disabled]="creating()">
+        {{ creating() ? 'Encrypting…' : 'Create & download' }}
+      </button>
+    </form>
+  </section>
+  <section class="backup-card card">
+    <div class="card-icon"><app-icon name="upload" /></div>
+    <h2>Restore a backup</h2>
+    <p>Integrity is checked before anything changes. Then choose Replace or Merge.</p>
+    <label class="file-picker"
+      ><input
+        type="file"
+        accept=".pxbackup,application/json"
+        (change)="selectFile($event)"
+      /><app-icon name="upload" /><span>{{
+        selectedEnvelope()
+          ? 'Backup selected · ' + selectedEnvelope()?.createdAt
+          : 'Choose .pxbackup file'
+      }}</span></label
+    >
+    @if (selectedEnvelope()) {
+      <label class="password"
+        >Backup password<input
+          type="password"
+          [formControl]="restorePassword"
+          autocomplete="current-password" /></label
+      ><button
+        type="button"
+        class="button secondary full"
+        [disabled]="!restorePassword.value || restoring()"
+        (click)="inspect()"
+      >
+        {{ restoring() ? 'Validating…' : 'Validate backup' }}
+      </button>
+    }
+    @if (inspected()) {
+      <div class="counts">
+        <h3>Backup contents</h3>
+        @for (entry of countEntries(); track entry.name) {
+          <p>
+            <span>{{ entry.name }}</span
+            ><strong>{{ entry.count }}</strong>
+          </p>
+        }
+      </div>
+      <div class="restore-actions">
+        <button
+          type="button"
+          class="button secondary"
+          [disabled]="restoring()"
+          (click)="restore('merge')"
+        >
+          Merge</button
+        ><button
+          type="button"
+          class="button danger"
+          [disabled]="restoring()"
+          (click)="restore('replace')"
+        >
+          Replace selected
+        </button>
+      </div>
+    }
+  </section>
+</div>
+<aside class="security-note card">
+  <app-icon name="shield" />
+  <div>
+    <h2>Designed for safe device transfers</h2>
+    <p>
+      PBKDF2 derives a unique encryption key from the backup password, every file gets a random salt
+      and IV, and authenticated encryption rejects corrupted or modified backups.
+    </p>
+  </div>
+</aside>

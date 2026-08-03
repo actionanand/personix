@@ -1,0 +1,121 @@
+<section class="hero card">
+  <div>
+    <p class="eyebrow">Good to see you</p>
+    <h1>Everything important,<br /><span>quietly organised.</span></h1>
+    <p>Personix keeps your links, family references, notes and lists private on this device.</p>
+  </div>
+  <div class="privacy-orb"><app-icon name="shield" /><span>Local-first</span></div>
+</section>
+<section class="summary-grid" aria-label="Personix summaries">
+  <a routerLink="/content" class="summary-card card"
+    ><span class="summary-icon green"><app-icon name="link" /></span
+    ><strong>{{ recentContent().length }}</strong
+    ><span>Recent content</span><app-icon name="chevron"
+  /></a>
+  <a routerLink="/content" class="summary-card card"
+    ><span class="summary-icon gold"><app-icon name="sparkle" /></span
+    ><strong>{{ waitingToSend().length }}</strong
+    ><span>Waiting to send</span><app-icon name="chevron"
+  /></a>
+  <a routerLink="/notes" class="summary-card card"
+    ><span class="summary-icon blue"><app-icon name="note" /></span
+    ><strong>{{ recentNotes().length }}</strong
+    ><span>Recent notes</span><app-icon name="chevron"
+  /></a>
+  <a routerLink="/checklists" class="summary-card card"
+    ><span class="summary-icon coral"><app-icon name="checklist" /></span
+    ><strong>{{ pendingItems().length }}</strong
+    ><span>Pending items</span><app-icon name="chevron"
+  /></a>
+</section>
+<div class="dashboard-grid">
+  <section class="module-card card">
+    <header>
+      <div>
+        <p class="eyebrow">Recently saved</p>
+        <h2>Content</h2>
+      </div>
+      <a routerLink="/content">View all</a>
+    </header>
+    @if (recentContent().length) {
+      <div class="rows">
+        @for (item of recentContent(); track item.id) {
+          <a routerLink="/content"
+            ><span class="row-icon"><app-icon name="link" /></span
+            ><span
+              ><strong>{{ item.title || item.ogTitle || item.domain }}</strong
+              ><small>{{ item.platform }} · {{ item.createdAt | date: 'mediumDate' }}</small></span
+            ><app-icon name="chevron"
+          /></a>
+        }
+      </div>
+    } @else {
+      <p class="empty-copy">No saved content yet.</p>
+    }
+  </section>
+  <section class="module-card card">
+    <header>
+      <div>
+        <p class="eyebrow">For later</p>
+        <h2>Notes</h2>
+      </div>
+      <a routerLink="/notes">Open notes</a>
+    </header>
+    @if (recentNotes().length) {
+      <div class="note-preview">
+        @for (note of recentNotes(); track note.id) {
+          <p>{{ note.text }}</p>
+        }
+      </div>
+    } @else {
+      <p class="empty-copy">Your temporary notes will appear here.</p>
+    }
+  </section>
+  <section class="module-card card">
+    <header>
+      <div>
+        <p class="eyebrow">Family reminders</p>
+        <h2>Important people</h2>
+      </div>
+      <a routerLink="/family">Family & Health</a>
+    </header>
+    @if (importantFamily().length) {
+      <div class="rows">
+        @for (member of importantFamily(); track member.id) {
+          <a routerLink="/family"
+            ><span class="row-icon"><app-icon name="family" /></span
+            ><span
+              ><strong>{{ member.name }}</strong
+              ><small
+                >{{ member.relationship }}
+                @if (member.dateOfBirth) {
+                  · {{ member.dateOfBirth | date: 'mediumDate' }}
+                }
+              </small></span
+            ><app-icon name="chevron"
+          /></a>
+        }
+      </div>
+    } @else {
+      <p class="empty-copy">Mark family members as important to see them here.</p>
+    }
+  </section>
+  <section class="module-card card">
+    <header>
+      <div>
+        <p class="eyebrow">Next up</p>
+        <h2>Checklist items</h2>
+      </div>
+      <a routerLink="/checklists">Open lists</a>
+    </header>
+    @if (pendingItems().length) {
+      <div class="todos">
+        @for (item of pendingItems(); track item.id) {
+          <p><span></span>{{ item.text }}</p>
+        }
+      </div>
+    } @else {
+      <p class="empty-copy">Nothing pending. Nicely done.</p>
+    }
+  </section>
+</div>

@@ -1,0 +1,293 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+}
+.app-shell {
+  min-height: 100dvh;
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+.app-header {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  display: flex;
+  min-height: 4.4rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem max(1rem, calc((100% - 72rem) / 2));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  background: color-mix(in srgb, var(--background) 90%, transparent);
+  backdrop-filter: blur(18px);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--text);
+  text-decoration: none;
+}
+.brand img {
+  object-fit: contain;
+}
+.brand span {
+  display: grid;
+}
+.brand strong {
+  letter-spacing: -0.02em;
+}
+.brand small {
+  color: var(--muted);
+  font-size: 0.67rem;
+}
+.header-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+.page-container {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+  padding: 1rem;
+}
+.bottom-nav {
+  position: fixed;
+  z-index: 40;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 0.45rem 0.35rem calc(0.45rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(18px);
+}
+.bottom-nav a,
+.bottom-nav button {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.1rem;
+  border: 0;
+  border-radius: 0.8rem;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.68rem;
+  text-decoration: none;
+}
+.bottom-nav .active {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.fab {
+  position: fixed;
+  z-index: 41;
+  right: 1rem;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  display: grid;
+  width: 3.4rem;
+  height: 3.4rem;
+  place-items: center;
+  border: 0;
+  border-radius: 1.15rem;
+  color: white;
+  background: linear-gradient(145deg, var(--primary), var(--primary-deep));
+  box-shadow: 0 10px 28px rgba(16, 114, 73, 0.32);
+}
+.app-shell:has(
+    input:focus,
+    textarea:focus,
+    [contenteditable='true']:focus,
+    .picker-overlay,
+    .editor
+  )
+  .fab {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(0.75rem) scale(0.82);
+}
+.fab {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+.sheet-backdrop {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 13, 8, 0.62);
+  backdrop-filter: blur(2px);
+}
+.bottom-sheet {
+  position: fixed;
+  z-index: 61;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  max-height: min(80dvh, 46rem);
+  overflow: auto;
+  padding: 0.7rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  border-radius: 1.6rem 1.6rem 0 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.bottom-sheet > h2 {
+  width: min(100%, 36rem);
+  margin: 0.7rem auto 1rem;
+  font-size: 1.15rem;
+}
+.sheet-handle {
+  width: 2.7rem;
+  height: 0.3rem;
+  margin: 0 auto;
+  border-radius: 1rem;
+  background: var(--border-strong);
+}
+.bottom-sheet nav {
+  display: grid;
+  width: min(100%, 36rem);
+  margin-inline: auto;
+}
+.bottom-sheet nav a {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.8rem 0.35rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+.bottom-sheet nav a > span:nth-child(2) {
+  display: grid;
+  gap: 0.15rem;
+  font-weight: 650;
+}
+.bottom-sheet nav small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 400;
+}
+.nav-icon {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 0.8rem;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  width: min(100%, 36rem);
+  margin-inline: auto;
+  gap: 0.7rem;
+}
+.quick-grid a {
+  display: flex;
+  min-height: 5rem;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  color: var(--text);
+  background: var(--surface-muted);
+  font-weight: 650;
+  text-decoration: none;
+}
+.quick-grid app-icon {
+  color: var(--primary);
+}
+.splash-state,
+.error-state,
+.lock-screen {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 1.25rem;
+  text-align: center;
+}
+.splash-state {
+  align-content: center;
+  gap: 1rem;
+  color: var(--muted);
+}
+.loader {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid var(--primary-soft);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.error-state {
+  align-content: center;
+  gap: 0.8rem;
+}
+.error-state > app-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--danger);
+}
+.lock-screen {
+  background: radial-gradient(circle at 50% 10%, var(--primary-soft), transparent 38%);
+}
+.lock-card {
+  position: relative;
+  width: min(100%, 26rem);
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1.6rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.lock-card > img {
+  object-fit: contain;
+}
+.lock-mark {
+  position: absolute;
+  top: 5.3rem;
+  left: calc(50% + 1.6rem);
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  color: white;
+  background: var(--primary);
+}
+.lock-card h1 {
+  margin: 0.8rem 0 0.35rem;
+}
+.lock-card > p {
+  color: var(--muted);
+}
+.lock-card form {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1.2rem 0 0.7rem;
+  text-align: left;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (min-width: 50rem) {
+  .bottom-nav {
+    left: 50%;
+    width: min(42rem, calc(100% - 2rem));
+    transform: translateX(-50%);
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: 1.2rem 1.2rem 0 0;
+  }
+  .fab {
+    right: max(1.5rem, calc((100% - 72rem) / 2));
+  }
+}
