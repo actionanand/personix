@@ -83,6 +83,13 @@ jobs:
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
           echo "RELEASE_FILE=${RELEASE_BASENAME}-${VERSION_NAME//./-}" >> "$GITHUB_ENV"
 
+      - name: Empty release folder
+        run: |
+          RELEASE_DIR="$GITHUB_WORKSPACE/releases"
+          test "$RELEASE_DIR" = "$GITHUB_WORKSPACE/releases"
+          rm -rf -- "$RELEASE_DIR"
+          mkdir -p "$RELEASE_DIR"
+
       - name: Generate branded launcher and Play Store icons
         run: |
           sudo apt-get update
@@ -96,7 +103,6 @@ jobs:
             cp "android/app/src/main/res/$DIR/ic_launcher.png" "android/app/src/main/res/$DIR/ic_launcher_round.png"
             cp "android/app/src/main/res/$DIR/ic_launcher.png" "android/app/src/main/res/$DIR/ic_launcher_foreground.png"
           done
-          mkdir -p releases
           convert public/personix.png -background none -resize 420x420 -gravity center -extent 512x512 releases/playstore-icon.png
 
       - name: Build debug APK for normal branches
@@ -153,7 +159,7 @@ jobs:
           BUILD_TOOLS="${ANDROID_HOME}/build-tools/$(ls "${ANDROID_HOME}/build-tools" | sort -V | tail -1)"
           UNSIGNED=$(find android/app/build -name '*-release-unsigned.apk' | head -1)
           "$BUILD_TOOLS/zipalign" -v 4 "$UNSIGNED" "releases/${RELEASE_FILE}.apk"
-          "$BUILD_TOOLS/apksigner" sign --ks android/app/release-keystore.jks --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD "releases/${RELEASE_FILE}.apk"
+          "$BUILD_TOOLS/apksigner" sign --v4-signing-enabled false --ks android/app/release-keystore.jks --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD "releases/${RELEASE_FILE}.apk"
           "$BUILD_TOOLS/apksigner" verify --verbose "releases/${RELEASE_FILE}.apk"
 
       - name: Copy unsigned APK
