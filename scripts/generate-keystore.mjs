@@ -7,14 +7,23 @@ const output = 'release-keystore.jks';
 const key = '.personix-release-key.pem';
 const cert = '.personix-release-cert.pem';
 const alias = 'personix';
-const input = readline.createInterface({ input: process.stdin, output: process.stdout });
-input._writeToOutput = (value) => {
-  if (value.includes('Enter keystore password')) input.output.write(value);
-};
-const password =
-  process.env.KEYSTORE_PASSWORD || (await input.question('Enter keystore password: '));
-input.output.write('\n');
-input.close();
+const passwordIndex = process.argv.indexOf('--password');
+if (passwordIndex >= 0 && passwordIndex === process.argv.length - 1) {
+  console.error("Usage: npm run generate-keystore -- --password 'YOUR_STRONG_PASSWORD'");
+  process.exit(1);
+}
+
+const argumentPassword = passwordIndex >= 0 ? process.argv[passwordIndex + 1] : null;
+let password = argumentPassword ?? process.env.KEYSTORE_PASSWORD ?? null;
+if (password === null) {
+  const input = readline.createInterface({ input: process.stdin, output: process.stdout });
+  input._writeToOutput = (value) => {
+    if (value.includes('Enter keystore password')) input.output.write(value);
+  };
+  password = await input.question('Enter keystore password: ');
+  input.output.write('\n');
+  input.close();
+}
 if (!password) {
   console.error('Password cannot be empty.');
   process.exit(1);
