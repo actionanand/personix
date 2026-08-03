@@ -23,6 +23,8 @@ export class Checklists {
   protected readonly lists = signal<readonly Checklist[]>([]);
   protected readonly selected = signal<Checklist | null>(null);
   protected readonly items = signal<readonly ChecklistItem[]>([]);
+  protected readonly savingList = signal(false);
+  protected readonly savingItem = signal(false);
   protected readonly listTitle = this.formBuilder.nonNullable.control('', Validators.required);
   protected readonly itemText = this.formBuilder.nonNullable.control('', Validators.required);
   protected readonly visibleItems = computed(() =>
@@ -54,19 +56,39 @@ export class Checklists {
     this.items.set(await this.repository.items(list.id));
   }
   protected async addList(): Promise<void> {
-    if (this.listTitle.invalid) return;
-    const list = await this.repository.saveList(this.listTitle.value);
-    this.listTitle.reset();
-    this.selected.set(list);
-    this.feedback.notify('Checklist created');
-    await this.load();
+    if (this.listTitle.invalid || this.savingList()) return;
+    this.savingList.set(true);
+    try {
+      const list = await this.repository.saveList(this.listTitle.value.trim());
+      this.listTitle.reset();
+      this.selected.set(list);
+      this.feedback.notify('Checklist created');
+      await this.load();
+    } catch (error) {
+      this.feedback.notify(
+        error instanceof Error ? error.message : 'Checklist could not be created.',
+        'error',
+      );
+    } finally {
+      this.savingList.set(false);
+    }
   }
   protected async addItem(): Promise<void> {
     const list = this.selected();
-    if (!list || this.itemText.invalid) return;
-    await this.repository.addItem(list.id, this.itemText.value);
-    this.itemText.reset();
-    this.items.set(await this.repository.items(list.id));
+    if (!list || this.itemText.invalid || this.savingItem()) return;
+    this.savingItem.set(true);
+    try {
+      await this.repository.addItem(list.id, this.itemText.value.trim());
+      this.itemText.reset();
+      this.items.set(await this.repository.items(list.id));
+    } catch (error) {
+      this.feedback.notify(
+        error instanceof Error ? error.message : 'Checklist item could not be added.',
+        'error',
+      );
+    } finally {
+      this.savingItem.set(false);
+    }
   }
   protected async toggle(item: ChecklistItem): Promise<void> {
     await this.repository.toggle(item);

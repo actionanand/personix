@@ -24,6 +24,7 @@ export class Settings {
   private readonly formBuilder = inject(FormBuilder);
   protected readonly securityPanel = signal<'none' | 'set' | 'change'>('none');
   protected readonly busy = signal(false);
+  protected readonly clearingData = signal(false);
   protected readonly adultCount = signal(0);
   protected readonly autoLockOptions: readonly SelectPickerOption[] = [
     { value: '0', label: 'Never' },
@@ -224,11 +225,45 @@ export class Settings {
     if (value === 'english' || value === 'tamil' || value === 'both')
       void this.store.updateSettings({ [key]: value as NameDisplayPreference });
   }
-  private async authorizeSensitiveAction(): Promise<boolean> {
+  protected async clearAllData(): Promise<void> {
+    if (this.clearingData()) return;
+    if (
+      !(await this.authorizeSensitiveAction(
+        'Enter your application PIN before permanently clearing Personix.',
+      ))
+    )
+      return;
+    const result = await this.dialogs.open({
+      title: 'Clear all Personix data?',
+      description:
+        'Every saved item, family and health record, vehicle, note, checklist, attachment reference, setting and application PIN will be permanently removed from this device.',
+      confirmText: 'Clear all data',
+      destructive: true,
+      typedConfirmation: 'CLEAR ALL',
+      icon: 'alert',
+    });
+    if (!result.confirmed) return;
+    this.clearingData.set(true);
+    try {
+      await this.store.clearAllData();
+      this.feedback.notify('All Personix data was cleared');
+      await this.refreshCounts();
+    } catch (error) {
+      this.feedback.notify(
+        error instanceof Error ? error.message : 'Data could not be cleared.',
+        'error',
+      );
+    } finally {
+      this.clearingData.set(false);
+    }
+  }
+  private async authorizeSensitiveAction(
+    description = 'Enter your application PIN before changing protected adult-content settings.',
+  ): Promise<boolean> {
     if (!this.store.settings().pin) return true;
     const result = await this.dialogs.open({
       title: 'Confirm your identity',
-      description: 'Enter your application PIN before changing protected adult-content settings.',
+      description,
       confirmText: 'Continue',
       icon: 'lock',
       promptLabel: 'Application PIN',

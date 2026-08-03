@@ -5,16 +5,23 @@
 </header>
 <div class="layout">
   <aside class="list-panel card">
-    <form (ngSubmit)="addList()">
+    <div class="list-form">
       <label class="visually-hidden" for="list-title">New checklist title</label
-      ><input id="list-title" [formControl]="listTitle" placeholder="New checklist…" /><button
-        type="submit"
+      ><input
+        id="list-title"
+        [formControl]="listTitle"
+        placeholder="New checklist…"
+        (keydown.enter)="$event.preventDefault(); addList()"
+      /><button
+        type="button"
         class="icon-button"
         aria-label="Create checklist"
+        [disabled]="listTitle.invalid || savingList()"
+        (click)="addList()"
       >
         <app-icon name="plus" />
       </button>
-    </form>
+    </div>
     <nav aria-label="Your checklists">
       @for (list of lists(); track list.id) {
         <button type="button" [class.active]="selected()?.id === list.id" (click)="select(list)">
@@ -61,16 +68,22 @@
       >
         <span [style.width.%]="progress()"></span>
       </div>
-      <form class="add-item" (ngSubmit)="addItem()">
+      <div class="add-item">
         <label class="visually-hidden" for="item-text">New item</label
-        ><input id="item-text" [formControl]="itemText" placeholder="Add an item…" /><button
-          type="submit"
+        ><input
+          id="item-text"
+          [formControl]="itemText"
+          placeholder="Add an item…"
+          (keydown.enter)="$event.preventDefault(); addItem()"
+        /><button
+          type="button"
           class="button"
-          [disabled]="itemText.invalid"
+          [disabled]="itemText.invalid || savingItem()"
+          (click)="addItem()"
         >
           <app-icon name="plus" /> Add
         </button>
-      </form>
+      </div>
       <div class="items">
         @for (item of visibleItems(); track item.id) {
           <article [class.completed]="item.completed">

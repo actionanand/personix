@@ -23,7 +23,6 @@ import {
   LucideGlobe2,
   LucideHeart,
   LucideHospital,
-  LucideHouse,
   LucideInfo,
   LucideLink2,
   LucideLockKeyhole,
@@ -32,6 +31,7 @@ import {
   LucideMoon,
   LucidePencil,
   LucidePill,
+  LucidePictureInPicture2,
   LucidePlus,
   LucideRefreshCw,
   LucideSave,
@@ -47,6 +47,8 @@ import {
   LucideUpload,
   LucideUsersRound,
   LucideVideo,
+  LucideVolume2,
+  LucideVolumeX,
   LucideWalletCards,
   LucideX,
   LucideDynamicIcon,
@@ -76,7 +78,6 @@ const ICONS: Readonly<Record<string, LucideIconInput>> = {
   globe: LucideGlobe2,
   heart: LucideHeart,
   hospital: LucideHospital,
-  home: LucideHouse,
   info: LucideInfo,
   link: LucideLink2,
   lock: LucideLockKeyhole,
@@ -103,6 +104,9 @@ const ICONS: Readonly<Record<string, LucideIconInput>> = {
   insurance: LucideWalletCards,
   close: LucideX,
   video: LucideVideo,
+  volume: LucideVolume2,
+  'volume-off': LucideVolumeX,
+  pip: LucidePictureInPicture2,
 };
 
 @Component({

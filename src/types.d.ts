@@ -33,5 +33,9 @@ declare global {
     readonly PersonixMetadata?: {
       fetch(url: string, timeoutMs: number, maxImageBytes: number): void;
     };
+    readonly PersonixPip?: {
+      isSupported(): boolean;
+      enter(width: number, height: number): void;
+    };
   }
 }

@@ -97,7 +97,7 @@
     </button>
   }
 </section>
-<form class="composer card" (ngSubmit)="save()">
+<div class="composer card">
   <label class="visually-hidden" for="note-composer">Write a note</label
   ><textarea
     #composerElement
@@ -105,9 +105,9 @@
     [formControl]="composer"
     rows="1"
     placeholder="Write something to remember…"
-    (keydown.control.enter)="save()"
+    (keydown.control.enter)="$event.preventDefault(); save()"
   ></textarea
-  ><button type="submit" class="button" [disabled]="composer.invalid">
-    <app-icon name="save" /><span>Save</span>
+  ><button type="button" class="button" [disabled]="composer.invalid || saving()" (click)="save()">
+    <app-icon name="save" /><span>{{ saving() ? 'Saving…' : 'Save' }}</span>
   </button>
-</form>
+</div>

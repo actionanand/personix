@@ -59,6 +59,11 @@ fieldset label {
   font-size: 0.8rem;
   font-weight: 700;
 }
+.validate-backup {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
 .file-picker {
   display: grid;
   min-height: 7rem;

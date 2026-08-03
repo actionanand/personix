@@ -50,8 +50,8 @@
 } @else {
   <div class="app-shell">
     <header class="app-header">
-      <a routerLink="/home" class="brand" aria-label="Personix home">
-        <img ngSrc="personix.png" width="40" height="40" alt="" priority />
+      <a routerLink="/content" class="brand" aria-label="Personix content">
+        <img ngSrc="personix.png" width="48" height="48" alt="" priority />
         <span><strong>Personix</strong><small>Private. Local. Yours.</small></span>
       </a>
       <div class="header-actions">
@@ -73,24 +73,22 @@
 
     <main class="page-container"><router-outlet /></main>
 
-    <button
-      type="button"
-      class="fab"
-      aria-label="Quick add"
-      [attr.aria-expanded]="quickAddOpen()"
-      (click)="quickAddOpen.set(true)"
-    >
-      <app-icon name="plus" />
-    </button>
-
     <nav class="bottom-nav" aria-label="Primary navigation">
-      <a routerLink="/home" routerLinkActive="active"><app-icon name="home" /><span>Home</span></a>
       <a routerLink="/content" routerLinkActive="active"
         ><app-icon name="circle-play" /><span>Content</span></a
       >
       <a routerLink="/family" routerLinkActive="active"
         ><app-icon name="family" /><span>Family</span></a
       >
+      <button
+        type="button"
+        class="bottom-add"
+        aria-label="Quick add"
+        [attr.aria-expanded]="quickAddOpen()"
+        (click)="quickAddOpen.set(true)"
+      >
+        <app-icon name="plus" />
+      </button>
       <a routerLink="/notes" routerLinkActive="active"
         ><app-icon name="note" /><span>Notes</span></a
       >

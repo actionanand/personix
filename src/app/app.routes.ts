@@ -2,11 +2,6 @@ import { Routes } from '@angular/router';
 
 export const routes: Routes = [
   {
-    path: 'home',
-    loadComponent: () => import('./features/home/home').then((m) => m.Home),
-    title: 'Home · Personix',
-  },
-  {
     path: 'content',
     loadComponent: () => import('./features/content/content').then((m) => m.Content),
     title: 'Saved Content · Personix',
@@ -46,6 +41,6 @@ export const routes: Routes = [
     loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),
     title: 'Settings · Personix',
   },
-  { path: '', pathMatch: 'full', redirectTo: 'home' },
-  { path: '**', redirectTo: 'home' },
+  { path: '', pathMatch: 'full', redirectTo: 'content' },
+  { path: '**', redirectTo: 'content' },
 ];

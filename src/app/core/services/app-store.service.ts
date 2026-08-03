@@ -1,6 +1,12 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { DATABASE } from '../database/database.port';
-import { AppSettings, SchemaMigration, nowIso } from '../models/app.models';
+import { DATABASE, DATABASE_TABLES } from '../database/database.port';
+import {
+  AppSettings,
+  DatabaseTable,
+  SchemaMigration,
+  TableRecordMap,
+  nowIso,
+} from '../models/app.models';
 import { ContentRepository } from '../repositories/content.repository';
 import { SettingsRepository, defaultSettings } from '../repositories/settings.repository';
 import { NativeIntegrationService } from './native-integration.service';
@@ -98,6 +104,26 @@ export class AppStore {
 
   async authenticate(pin: string): Promise<boolean> {
     return this.security.verifyPin(pin, this.settings().pin);
+  }
+
+  async clearAllData(): Promise<void> {
+    try {
+      await this.native.disableBiometric();
+    } catch {
+      // Database clearing must still continue if the native Keystore entry is already unavailable.
+    }
+    const emptyTables = Object.fromEntries(DATABASE_TABLES.map((table) => [table, []])) as Partial<
+      Readonly<Record<DatabaseTable, readonly TableRecordMap[DatabaseTable][]>>
+    >;
+    await this.database.replaceTables(emptyTables);
+    const settings = defaultSettings();
+    await this.database.put('app_settings', settings);
+    this.settings.set(settings);
+    await this.runMigrations();
+    await this.contentRepository.findOrCreateCategory('Adult', true);
+    this.locked.set(false);
+    this.initializationError.set('');
+    this.theme.apply(settings.theme);
   }
 
   private async runMigrations(): Promise<void> {

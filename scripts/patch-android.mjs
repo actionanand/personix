@@ -42,13 +42,19 @@ for (const permission of [
 }
 manifest = manifest.replace(
   /<activity\b(?=[^>]*android:name="\.MainActivity")[^>]*>/,
-  (activity) =>
-    activity.includes('android:theme=')
+  (activity) => {
+    let patched = activity.includes('android:theme=')
       ? activity.replace(
           /android:theme="[^"]*"/,
           'android:theme="@style/AppTheme.NoActionBarLaunch"',
         )
-      : activity.replace(/>$/, '\n            android:theme="@style/AppTheme.NoActionBarLaunch">'),
+      : activity.replace(/>$/, '\n            android:theme="@style/AppTheme.NoActionBarLaunch">');
+    if (!patched.includes('android:supportsPictureInPicture='))
+      patched = patched.replace(/>$/, '\n            android:supportsPictureInPicture="true">');
+    if (!patched.includes('android:resizeableActivity='))
+      patched = patched.replace(/>$/, '\n            android:resizeableActivity="true">');
+    return patched;
+  },
 );
 await writeFile(manifestPath, manifest, 'utf8');
 
@@ -138,6 +144,7 @@ await writeTheme(resolve(resPath, 'values-night/styles.xml'), true);
 
 const java = `package ${appId};
 
+import android.app.PictureInPictureParams;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
@@ -147,6 +154,7 @@ import android.os.Looper;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
+import android.util.Rational;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -196,16 +204,22 @@ public class MainActivity extends BridgeActivity {
     getBridge().getWebView().addJavascriptInterface(new SystemBarsBridge(), "PersonixSystemBars");
     getBridge().getWebView().addJavascriptInterface(new BiometricBridge(), "PersonixBiometric");
     getBridge().getWebView().addJavascriptInterface(new MetadataBridge(), "PersonixMetadata");
+    getBridge().getWebView().addJavascriptInterface(new PipBridge(), "PersonixPip");
     getBridge().getWebView().setBackgroundColor(Color.parseColor(darkMode ? "#07140F" : "#F3F8F5"));
     applyLaunchBars();
   }
 
   @Override public void onResume() { super.onResume(); if (launchOverlay == null) applySystemBars(darkMode); }
+  @Override public void onPictureInPictureModeChanged(boolean active, Configuration configuration) { super.onPictureInPictureModeChanged(active, configuration); dispatch("pip-mode", true, active ? "true" : "false", ""); }
   @Override public void onWindowFocusChanged(boolean focus) { super.onWindowFocusChanged(focus); if (focus && launchOverlay == null) applySystemBars(darkMode); }
   @Override public void onDestroy() { if (biometricPrompt != null) biometricPrompt.cancelAuthentication(); networkExecutor.shutdownNow(); mainHandler.removeCallbacksAndMessages(null); super.onDestroy(); }
 
   public class NativeBridge { @JavascriptInterface public void hideSplash() { runOnUiThread(() -> hideLaunchOverlay()); } }
   public class SystemBarsBridge { @JavascriptInterface public void setDarkMode(boolean value) { darkMode = value; runOnUiThread(() -> applySystemBars(value)); } }
+  public class PipBridge {
+    @JavascriptInterface public boolean isSupported() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O; }
+    @JavascriptInterface public void enter(int width, int height) { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return; runOnUiThread(() -> { PictureInPictureParams params = new PictureInPictureParams.Builder().setAspectRatio(new Rational(Math.max(1, width), Math.max(1, height))).build(); enterPictureInPictureMode(params); }); }
+  }
 
   public class BiometricBridge {
     @JavascriptInterface public boolean isAvailable() { return BiometricManager.from(MainActivity.this).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS; }
@@ -303,5 +317,5 @@ public class MainActivity extends BridgeActivity {
 
 await writeFile(javaPath, java, 'utf8');
 console.log(
-  'Applied Personix branded splash, system bars, Keystore biometrics, direct metadata and R8 patches.',
+  'Applied Personix branded splash, system bars, Keystore biometrics, direct metadata, picture-in-picture and R8 patches.',
 );

@@ -27,6 +27,8 @@
   text-decoration: none;
 }
 .brand img {
+  width: 3rem;
+  height: 3rem;
   object-fit: contain;
 }
 .brand span {
@@ -80,37 +82,22 @@
   color: var(--primary);
   background: var(--primary-soft);
 }
-.fab {
-  position: fixed;
-  z-index: 41;
-  right: 1rem;
-  bottom: calc(5.5rem + env(safe-area-inset-bottom));
-  display: grid;
-  width: 3.4rem;
-  height: 3.4rem;
-  place-items: center;
-  border: 0;
-  border-radius: 1.15rem;
+.bottom-nav .bottom-add {
+  position: relative;
+  z-index: 1;
+  align-self: start;
+  width: 4.15rem;
+  height: 4.15rem;
+  margin: -1.65rem auto -0.55rem;
+  border: 0.3rem solid var(--surface);
+  border-radius: 1.35rem;
   color: white;
   background: linear-gradient(145deg, var(--primary), var(--primary-deep));
-  box-shadow: 0 10px 28px rgba(16, 114, 73, 0.32);
+  box-shadow: 0 12px 30px rgba(16, 114, 73, 0.3);
 }
-.app-shell:has(
-    input:focus,
-    textarea:focus,
-    [contenteditable='true']:focus,
-    .picker-overlay,
-    .editor
-  )
-  .fab {
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(0.75rem) scale(0.82);
-}
-.fab {
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease;
+.bottom-nav .bottom-add app-icon {
+  width: 1.7rem;
+  height: 1.7rem;
 }
 .sheet-backdrop {
   position: fixed;
@@ -286,8 +273,5 @@
     border: 1px solid var(--border);
     border-bottom: 0;
     border-radius: 1.2rem 1.2rem 0 0;
-  }
-  .fab {
-    right: max(1.5rem, calc((100% - 72rem) / 2));
   }
 }

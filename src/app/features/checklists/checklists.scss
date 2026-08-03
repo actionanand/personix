@@ -15,14 +15,14 @@
   align-self: start;
   overflow: hidden;
 }
-.list-panel form {
+.list-panel .list-form {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.3rem;
   padding: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
-.list-panel form input {
+.list-panel .list-form input {
   border: 0;
   background: transparent;
 }

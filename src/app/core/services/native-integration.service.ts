@@ -62,6 +62,12 @@ export class NativeIntegrationService {
     }
   }
 
+  async enterPictureInPicture(width: number, height: number): Promise<boolean> {
+    if (!this.isAndroid() || window.PersonixPip?.isSupported() !== true) return false;
+    window.PersonixPip.enter(Math.max(1, width), Math.max(1, height));
+    return true;
+  }
+
   private waitForResult(action: string, invoke: () => void, timeoutMs = 60_000): Promise<string> {
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => {

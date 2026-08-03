@@ -94,6 +94,7 @@ export function detectContentUrl(raw: string): ContentDetection {
 
 export function buildEmbedUrl(
   item: Pick<SavedContent, 'contentType' | 'url' | 'resolvedUrl' | 'mediaId' | 'startTimeSeconds'>,
+  muted = false,
 ): string {
   const source = item.resolvedUrl || item.url;
   const detected = detectContentUrl(source);
@@ -103,7 +104,7 @@ export function buildEmbedUrl(
     case 'youtube':
     case 'youtube-short':
       return id
-        ? `https://www.youtube.com/embed/${id}?rel=0&playsinline=1${start ? `&start=${start}` : ''}`
+        ? `https://www.youtube.com/embed/${id}?rel=0&playsinline=1&mute=${muted ? 1 : 0}${start ? `&start=${start}` : ''}`
         : '';
     case 'instagram':
     case 'instagram-post': {
@@ -113,20 +114,22 @@ export function buildEmbedUrl(
     case 'facebook':
     case 'facebook-reel':
     case 'facebook-share':
-      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(source)}&show_text=false`;
+      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(source)}&show_text=false&mute=${muted ? 1 : 0}`;
     case 'facebook-post':
       return `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(source)}&show_text=true&width=500`;
     case 'tiktok':
     case 'tiktok-share':
       return id
-        ? `https://www.tiktok.com/player/v1/${id}?autoplay=0&controls=1&loop=0&music_info=0&rel=0`
+        ? `https://www.tiktok.com/player/v1/${id}?autoplay=0&controls=1&loop=0&music_info=0&rel=0&mute=${muted ? 1 : 0}`
         : '';
     case 'dailymotion':
       return id
-        ? `https://www.dailymotion.com/embed/video/${id}?autoplay=0&queue-enable=false`
+        ? `https://www.dailymotion.com/embed/video/${id}?autoplay=0&queue-enable=false&mute=${muted ? 1 : 0}`
         : '';
     case 'vimeo':
-      return id ? `https://player.vimeo.com/video/${id}?autoplay=0&dnt=1` : '';
+      return id
+        ? `https://player.vimeo.com/video/${id}?autoplay=0&dnt=1&muted=${muted ? 1 : 0}`
+        : '';
     case 'generic-video':
       return source;
     default:

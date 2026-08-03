@@ -28,6 +28,7 @@ export class Notes {
   private readonly formBuilder = inject(FormBuilder);
   protected readonly notes = signal<readonly Note[]>([]);
   protected readonly loading = signal(true);
+  protected readonly saving = signal(false);
   protected readonly nextCursor = signal<PageCursor | null>(null);
   protected readonly searchControl = this.formBuilder.nonNullable.control('');
   protected readonly composer = this.formBuilder.nonNullable.control('', Validators.required);
@@ -51,12 +52,22 @@ export class Notes {
     this.loading.set(false);
   }
   protected async save(): Promise<void> {
-    if (this.composer.invalid) return;
-    await this.repository.save(this.composer.value);
-    this.composer.reset();
-    this.feedback.notify('Note saved');
-    await this.load(true);
-    window.setTimeout(() => this.composerElement()?.nativeElement.focus(), 0);
+    if (this.composer.invalid || this.saving()) return;
+    this.saving.set(true);
+    try {
+      await this.repository.save(this.composer.value);
+      this.composer.reset();
+      this.feedback.notify('Note saved');
+      await this.load(true);
+      window.setTimeout(() => this.composerElement()?.nativeElement.focus(), 0);
+    } catch (error) {
+      this.feedback.notify(
+        error instanceof Error ? error.message : 'Note could not be saved.',
+        'error',
+      );
+    } finally {
+      this.saving.set(false);
+    }
   }
   protected async edit(note: Note): Promise<void> {
     const result = await this.dialogs.open({

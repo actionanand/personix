@@ -326,4 +326,27 @@
       /></label>
     </div>
   </section>
+  <section class="setting-section card">
+    <header>
+      <span class="adult"><app-icon name="trash" /></span>
+      <div>
+        <h2>Reset Personix</h2>
+        <p>Permanently remove every local record and preference</p>
+      </div>
+    </header>
+    <div class="setting-list">
+      <button
+        type="button"
+        class="destructive-row"
+        [disabled]="clearingData()"
+        (click)="clearAllData()"
+      >
+        <span
+          ><strong>Clear all data</strong
+          ><small>Requires identity confirmation and typing CLEAR ALL</small></span
+        >
+        <app-icon name="trash" />
+      </button>
+    </div>
+  </section>
 </div>

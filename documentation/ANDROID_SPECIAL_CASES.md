@@ -14,6 +14,10 @@ Notification small icons, if local notifications are added later, must be monoch
 
 The `PersonixMetadata` native bridge accepts only HTTP or HTTPS URLs, applies connect/read timeouts, follows redirects, stores the resolved URL, rejects non-HTML responses, and limits HTML reads to 1 MiB. Errors never prevent a record from being saved. Missing post previews synchronise on the Content screen when Android direct fetching is enabled. Browser third-party metadata remains a separate explicit opt-in and uses only `https://api.microlink.io/`.
 
+## Video picture-in-picture
+
+The Android patch enables resizable Activity picture-in-picture and exposes the constrained `PersonixPip` bridge on Android 8.0 and newer. Video previews use native HTML video PIP where available, Android Activity PIP in the installed app, Document PIP in supporting browsers, and an in-app mini-player as the final iframe fallback. Provider embed URLs are rebuilt with their supported mute parameters.
+
 ## Biometric unlock
 
 Biometrics can be enabled only after an application PIN exists. AndroidX Biometric requires an enrolled strong biometric. The PIN is encrypted with AES-GCM under a non-exportable Android Keystore key that requires biometric authentication for every use and is invalidated when biometric enrollment changes. The salted PIN verifier stays available as a fallback.

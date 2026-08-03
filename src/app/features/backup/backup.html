@@ -50,19 +50,22 @@
       }}</span></label
     >
     @if (selectedEnvelope()) {
-      <label class="password"
-        >Backup password<input
-          type="password"
-          [formControl]="restorePassword"
-          autocomplete="current-password" /></label
-      ><button
-        type="button"
-        class="button secondary full"
-        [disabled]="!restorePassword.value || restoring()"
-        (click)="inspect()"
-      >
-        {{ restoring() ? 'Validating…' : 'Validate backup' }}
-      </button>
+      <div class="validate-backup">
+        <label class="password"
+          >Backup password<input
+            type="password"
+            [formControl]="restorePassword"
+            autocomplete="current-password"
+        /></label>
+        <button
+          type="button"
+          class="button secondary full"
+          [disabled]="!restorePassword.value || restoring()"
+          (click)="inspect()"
+        >
+          {{ restoring() ? 'Validating…' : 'Validate backup' }}
+        </button>
+      </div>
     }
     @if (inspected()) {
       <div class="counts">
