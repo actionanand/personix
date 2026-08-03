@@ -274,7 +274,7 @@ export class ContentPreview {
     this.nativePipActive.set(true);
     if (await this.native.enterPictureInPicture(width, height)) return;
     this.nativePipActive.set(false);
-    const source = buildEmbedUrl(this.item(), this.muted());
+    const source = buildEmbedUrl(this.item(), this.muted(), true);
     if (!source) return;
     const documentPip = (
       window as unknown as { readonly documentPictureInPicture?: DocumentPictureInPictureApi }
@@ -282,6 +282,10 @@ export class ContentPreview {
     if (documentPip) {
       try {
         const pipWindow = await documentPip.requestWindow({ width, height });
+        const referrer = pipWindow.document.createElement('meta');
+        referrer.name = 'referrer';
+        referrer.content = 'strict-origin-when-cross-origin';
+        pipWindow.document.head.appendChild(referrer);
         const iframe = pipWindow.document.createElement('iframe');
         iframe.src = source;
         iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';

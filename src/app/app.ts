@@ -46,6 +46,10 @@ export class App {
     try {
       if (await this.store.unlock(this.pin.value)) this.pin.reset();
       else this.unlockError.set('Incorrect PIN. Try again.');
+    } catch (error) {
+      this.unlockError.set(
+        error instanceof Error ? error.message : 'Personix could not verify the PIN.',
+      );
     } finally {
       this.unlocking.set(false);
     }

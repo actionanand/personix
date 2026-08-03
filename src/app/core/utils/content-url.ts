@@ -95,6 +95,7 @@ export function detectContentUrl(raw: string): ContentDetection {
 export function buildEmbedUrl(
   item: Pick<SavedContent, 'contentType' | 'url' | 'resolvedUrl' | 'mediaId' | 'startTimeSeconds'>,
   muted = false,
+  autoplay = false,
 ): string {
   const source = item.resolvedUrl || item.url;
   const detected = detectContentUrl(source);
@@ -102,10 +103,21 @@ export function buildEmbedUrl(
   const start = item.startTimeSeconds ?? detected.startTimeSeconds;
   switch (item.contentType) {
     case 'youtube':
-    case 'youtube-short':
-      return id
-        ? `https://www.youtube.com/embed/${id}?rel=0&playsinline=1&mute=${muted ? 1 : 0}${start ? `&start=${start}` : ''}`
-        : '';
+    case 'youtube-short': {
+      if (!id) return '';
+      const context = typeof window === 'undefined' ? null : window.location;
+      const params = new URLSearchParams({
+        autoplay: autoplay ? '1' : '0',
+        enablejsapi: '1',
+        mute: muted ? '1' : '0',
+        playsinline: '1',
+        rel: '0',
+      });
+      if (context?.origin) params.set('origin', context.origin);
+      if (context?.href) params.set('widget_referrer', context.href);
+      if (start) params.set('start', String(start));
+      return `https://www.youtube.com/embed/${id}?${params.toString()}`;
+    }
     case 'instagram':
     case 'instagram-post': {
       const match = new URL(source).pathname.match(/^\/(reel|reels|p|tv)\/([^/?#]+)/i);

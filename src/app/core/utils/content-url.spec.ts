@@ -15,6 +15,27 @@ describe('content URL utilities', () => {
     ).toContain('start=90');
   });
 
+  it('includes the YouTube origin and referrer configuration required by PiP', () => {
+    const embed = new URL(
+      buildEmbedUrl(
+        {
+          contentType: 'youtube-short',
+          url: 'https://www.youtube.com/shorts/abc123',
+          resolvedUrl: '',
+          mediaId: 'abc123',
+          startTimeSeconds: 0,
+        },
+        false,
+        true,
+      ),
+    );
+
+    expect(embed.searchParams.get('autoplay')).toBe('1');
+    expect(embed.searchParams.get('enablejsapi')).toBe('1');
+    expect(embed.searchParams.get('origin')).toBe(window.location.origin);
+    expect(embed.searchParams.get('widget_referrer')).toBe(window.location.href);
+  });
+
   it('uses the resolved URL and ID for redirect-based TikTok shares', () => {
     const embed = buildEmbedUrl({
       contentType: 'tiktok-share',

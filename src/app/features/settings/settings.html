@@ -59,34 +59,66 @@
       /></label>
     </div>
     @if (securityPanel() !== 'none') {
-      <form class="inline-panel" [formGroup]="pinForm" (ngSubmit)="savePin()">
-        <h3>{{ store.settings().pin ? 'Change application PIN' : 'Enable application PIN' }}</h3>
-        @if (store.settings().pin) {
+      <button
+        type="button"
+        class="pin-dialog-backdrop"
+        aria-label="Close application PIN settings"
+        (click)="securityPanel.set('none')"
+      ></button>
+      <section
+        class="pin-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pin-dialog-title"
+        [formGroup]="pinForm"
+      >
+        <header>
+          <div>
+            <p class="eyebrow">Security</p>
+            <h2 id="pin-dialog-title">
+              {{ store.settings().pin ? 'Change application PIN' : 'Enable application PIN' }}
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Close application PIN settings"
+            (click)="securityPanel.set('none')"
+          >
+            <app-icon name="close" />
+          </button>
+        </header>
+        <div class="pin-fields">
+          @if (store.settings().pin) {
+            <label
+              >Current PIN<input
+                type="password"
+                inputmode="numeric"
+                maxlength="8"
+                formControlName="current"
+                autocomplete="current-password"
+                (keydown.enter)="savePin()"
+            /></label>
+          }
           <label
-            >Current PIN<input
+            >New PIN<input
               type="password"
               inputmode="numeric"
               maxlength="8"
-              formControlName="current"
-              autocomplete="current-password"
+              formControlName="next"
+              autocomplete="new-password"
+              (keydown.enter)="savePin()" /></label
+          ><label
+            >Confirm new PIN<input
+              type="password"
+              inputmode="numeric"
+              maxlength="8"
+              formControlName="confirm"
+              autocomplete="new-password"
+              (keydown.enter)="savePin()"
           /></label>
-        }
-        <label
-          >New PIN<input
-            type="password"
-            inputmode="numeric"
-            maxlength="8"
-            formControlName="next"
-            autocomplete="new-password" /></label
-        ><label
-          >Confirm new PIN<input
-            type="password"
-            inputmode="numeric"
-            maxlength="8"
-            formControlName="confirm"
-            autocomplete="new-password"
-        /></label>
-        <div>
+        </div>
+        <footer>
           <button type="button" class="button secondary" (click)="securityPanel.set('none')">
             Cancel
           </button>
@@ -95,9 +127,11 @@
               Remove PIN
             </button>
           }
-          <button type="submit" class="button" [disabled]="busy()">Save PIN</button>
-        </div>
-      </form>
+          <button type="button" class="button" [disabled]="busy()" (click)="savePin()">
+            Save PIN
+          </button>
+        </footer>
+      </section>
     }
   </section>
   <section class="setting-section card">

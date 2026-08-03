@@ -18,7 +18,7 @@
       <div class="lock-mark"><app-icon name="lock" /></div>
       <h1 id="lock-title">Welcome back</h1>
       <p>Enter your application PIN to open your private records.</p>
-      <form (ngSubmit)="unlock()">
+      <div class="lock-form">
         <label for="unlock-pin">Application PIN</label>
         <input
           id="unlock-pin"
@@ -27,14 +27,20 @@
           maxlength="8"
           autocomplete="current-password"
           [formControl]="pin"
+          (keydown.enter)="unlock()"
         />
         @if (unlockError()) {
           <p class="field-error" role="alert">{{ unlockError() }}</p>
         }
-        <button type="submit" class="button full" [disabled]="pin.invalid || unlocking()">
+        <button
+          type="button"
+          class="button full"
+          [disabled]="pin.invalid || unlocking()"
+          (click)="unlock()"
+        >
           {{ unlocking() ? 'Checking…' : 'Unlock' }}
         </button>
-      </form>
+      </div>
       @if (store.settings().biometricEnabled) {
         <button
           type="button"

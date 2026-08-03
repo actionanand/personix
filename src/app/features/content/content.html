@@ -75,65 +75,95 @@
 </section>
 
 @if (filterOpen()) {
-  <section class="filter-panel card" aria-label="Content filters">
-    <label
-      >Type<app-select-picker
-        [value]="filters().contentType"
-        (valueChange)="updateFilter('contentType', $any($event))"
-        [options]="contentTypeOptions()"
-        sheetTitle="Filter by type"
-    /></label>
-    <label
-      >Category<app-select-picker
-        [value]="filters().categoryId"
-        (valueChange)="updateFilter('categoryId', $event)"
-        [options]="categoryOptions()"
-        sheetTitle="Filter by category"
-    /></label>
-    <label
-      >Tag<app-select-picker
-        [value]="filters().tagId"
-        (valueChange)="updateFilter('tagId', $event)"
-        [options]="tagOptions()"
-        sheetTitle="Filter by tag"
-    /></label>
-    <label
-      >Recipient<app-select-picker
-        [value]="filters().recipientId"
-        (valueChange)="updateFilter('recipientId', $event)"
-        [options]="recipientOptions()"
-        sheetTitle="Filter by recipient"
-    /></label>
-    <label
-      >Share status<app-select-picker
-        [value]="filters().sent"
-        (valueChange)="updateFilter('sent', $any($event))"
-        [options]="sentOptions"
-        sheetTitle="Filter by share status"
-    /></label>
-    <label
-      >Read / watched<app-select-picker
-        [value]="filters().consumed"
-        (valueChange)="updateFilter('consumed', $any($event))"
-        [options]="consumedOptions"
-        sheetTitle="Filter by progress"
-    /></label>
-    <label
-      >Sort<app-select-picker
-        [value]="filters().sort"
-        (valueChange)="updateFilter('sort', $any($event))"
-        [options]="sortOptions"
-        sheetTitle="Sort content"
-    /></label>
-    <label class="check"
-      ><input
-        type="checkbox"
-        [checked]="filters().favouriteOnly"
-        (change)="updateFilter('favouriteOnly', $any($event.target).checked)"
-      />
-      Favourites only</label
-    >
-    <button type="button" class="button ghost" (click)="resetFilters()">Reset filters</button>
+  <button
+    type="button"
+    class="filter-dialog-backdrop"
+    aria-label="Close content filters"
+    (click)="filterOpen.set(false)"
+  ></button>
+  <section
+    class="filter-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="filter-dialog-title"
+  >
+    <header>
+      <div>
+        <p class="eyebrow">Saved content</p>
+        <h2 id="filter-dialog-title">Filter content</h2>
+      </div>
+      <button
+        type="button"
+        class="icon-button"
+        aria-label="Close content filters"
+        (click)="filterOpen.set(false)"
+      >
+        <app-icon name="close" />
+      </button>
+    </header>
+    <div class="filter-panel">
+      <label
+        >Type<app-select-picker
+          [value]="filters().contentType"
+          (valueChange)="updateFilter('contentType', $any($event))"
+          [options]="contentTypeOptions()"
+          sheetTitle="Filter by type"
+      /></label>
+      <label
+        >Category<app-select-picker
+          [value]="filters().categoryId"
+          (valueChange)="updateFilter('categoryId', $event)"
+          [options]="categoryOptions()"
+          sheetTitle="Filter by category"
+      /></label>
+      <label
+        >Tag<app-select-picker
+          [value]="filters().tagId"
+          (valueChange)="updateFilter('tagId', $event)"
+          [options]="tagOptions()"
+          sheetTitle="Filter by tag"
+      /></label>
+      <label
+        >Recipient<app-select-picker
+          [value]="filters().recipientId"
+          (valueChange)="updateFilter('recipientId', $event)"
+          [options]="recipientOptions()"
+          sheetTitle="Filter by recipient"
+      /></label>
+      <label
+        >Share status<app-select-picker
+          [value]="filters().sent"
+          (valueChange)="updateFilter('sent', $any($event))"
+          [options]="sentOptions"
+          sheetTitle="Filter by share status"
+      /></label>
+      <label
+        >Read / watched<app-select-picker
+          [value]="filters().consumed"
+          (valueChange)="updateFilter('consumed', $any($event))"
+          [options]="consumedOptions"
+          sheetTitle="Filter by progress"
+      /></label>
+      <label
+        >Sort<app-select-picker
+          [value]="filters().sort"
+          (valueChange)="updateFilter('sort', $any($event))"
+          [options]="sortOptions"
+          sheetTitle="Sort content"
+      /></label>
+      <label class="check"
+        ><input
+          type="checkbox"
+          [checked]="filters().favouriteOnly"
+          (change)="updateFilter('favouriteOnly', $any($event.target).checked)"
+        />
+        Favourites only</label
+      >
+    </div>
+    <footer>
+      <button type="button" class="button ghost" (click)="resetFilters()">Reset filters</button>
+      <button type="button" class="button" (click)="filterOpen.set(false)">Show results</button>
+    </footer>
   </section>
 }
 
