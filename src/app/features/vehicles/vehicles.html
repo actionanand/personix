@@ -1,0 +1,107 @@
+<header class="page-heading">
+  <div>
+    <p class="eyebrow">Vehicles & references</p>
+    <h1 class="page-title">Registration details at a glance</h1>
+    <p class="page-subtitle">
+      Search ignores spaces and punctuation in registration numbers while preserving your display
+      format.
+    </p>
+  </div>
+  <button type="button" class="button" (click)="open()">
+    <app-icon name="plus" /> Add vehicle
+  </button>
+</header>
+<section class="search">
+  <app-icon name="search" /><input
+    type="search"
+    aria-label="Search vehicles"
+    placeholder="Registration, make, model, owner…"
+    [formControl]="query"
+    (input)="load()"
+  />
+</section>
+<section class="vehicle-grid">
+  @for (vehicle of vehicles(); track vehicle.id) {
+    <article class="vehicle card">
+      <header>
+        <span><app-icon name="car" /></span>
+        @if (vehicle.favourite) {
+          <app-icon name="star" />
+        }
+      </header>
+      <h2>{{ vehicle.nickname }}</h2>
+      <strong class="plate">{{ vehicle.registrationNumber }}</strong>
+      <p>{{ vehicle.make }} {{ vehicle.model }} {{ vehicle.variant }}</p>
+      <dl>
+        <div>
+          <dt>Owner</dt>
+          <dd>{{ owner(vehicle) }}</dd>
+        </div>
+        <div>
+          <dt>Insurance</dt>
+          <dd>{{ vehicle.insuranceExpiry || 'Expiry not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Pollution certificate</dt>
+          <dd>{{ vehicle.pollutionExpiry || 'Expiry not recorded' }}</dd>
+        </div>
+      </dl>
+      <button type="button" class="button secondary danger-text" (click)="remove(vehicle)">
+        <app-icon name="trash" /> Delete
+      </button>
+    </article>
+  } @empty {
+    <div class="empty-state card">
+      <app-icon name="car" />
+      <h2>No vehicles saved</h2>
+      <p>Add a registration number, make and optional expiry details.</p>
+    </div>
+  }
+</section>
+@if (panelOpen()) {
+  <button
+    type="button"
+    class="editor-backdrop"
+    aria-label="Close editor"
+    (click)="panelOpen.set(false)"
+  ></button>
+  <section class="editor">
+    <header>
+      <h2>Add vehicle</h2>
+      <button type="button" class="icon-button" aria-label="Close" (click)="panelOpen.set(false)">
+        <app-icon name="close" />
+      </button>
+    </header>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <label>Vehicle nickname *<input formControlName="nickname" placeholder="Family car" /></label
+      ><label
+        >Registration / plate number *<input
+          formControlName="registrationNumber"
+          autocapitalize="characters" /></label
+      ><label>Make *<input formControlName="make" /></label
+      ><label>Model<input formControlName="model" /></label
+      ><label>Variant<input formControlName="variant" /></label
+      ><label
+        >Vehicle type<app-select-picker
+          formControlName="vehicleType"
+          [options]="vehicleTypeOptions"
+          sheetTitle="Choose vehicle type" /></label
+      ><label>Owner (free text)<input formControlName="owner" /></label
+      ><label
+        >Link family member<app-select-picker
+          formControlName="familyMemberId"
+          [options]="memberOptions()"
+          sheetTitle="Link family member" /></label
+      ><label>Registration date<input type="date" formControlName="registrationDate" /></label
+      ><label>Insurance provider<input formControlName="insuranceProvider" /></label
+      ><label>Insurance expiry<input type="date" formControlName="insuranceExpiry" /></label
+      ><label
+        >Pollution certificate expiry<input type="date" formControlName="pollutionExpiry" /></label
+      ><label class="wide">Notes<textarea formControlName="notes"></textarea></label
+      ><label class="check"><input type="checkbox" formControlName="favourite" /> Favourite</label>
+      <div class="form-actions wide">
+        <button type="submit" class="button">Save vehicle</button>
+      </div>
+    </form>
+  </section>
+}

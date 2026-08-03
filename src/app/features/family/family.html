@@ -1,0 +1,413 @@
+<header class="page-heading">
+  <div>
+    <p class="eyebrow">Family & health</p>
+    <h1 class="page-title">Separate records, one safe place</h1>
+    <p class="page-subtitle">
+      Family, hospital, insurance and important-item records never mix with saved content.
+    </p>
+  </div>
+  <button type="button" class="button" (click)="openAdd()">
+    <app-icon name="plus" /> Add record
+  </button>
+</header>
+<nav class="tabs" aria-label="Family and health sections">
+  @for (tab of tabs; track tab.id) {
+    <button type="button" [class.active]="activeTab() === tab.id" (click)="selectTab(tab.id)">
+      <app-icon [name]="tab.icon" /><span>{{ tab.label }}</span>
+    </button>
+  }
+</nav>
+<section class="search">
+  <app-icon name="search" /><input
+    type="search"
+    aria-label="Search current family and health section"
+    placeholder="Search this section…"
+    [formControl]="query"
+    (input)="load()"
+  />
+</section>
+<section class="records">
+  @switch (activeTab()) {
+    @case ('members') {
+      @for (member of members(); track member.id) {
+        <article class="record card">
+          <div class="record-icon"><app-icon name="family" /></div>
+          <div>
+            <h2>
+              {{ member.name }}
+              @if (member.important) {
+                <app-icon name="star" />
+              }
+            </h2>
+            <p>
+              {{ member.relationship }}
+              @if (member.dateOfBirth) {
+                · Born {{ member.dateOfBirth }}
+              }
+            </p>
+            <div class="details">
+              @if (member.bloodGroup) {
+                <span>{{ member.bloodGroup }}</span>
+              }
+              @if (rasiName(member.rasiId)) {
+                <span>{{ rasiName(member.rasiId) }}</span>
+              }
+              @if (nakshatraName(member.nakshatraId)) {
+                <span>{{ nakshatraName(member.nakshatraId) }}</span>
+              }
+              @if (member.gothram) {
+                <span>Gothram: {{ member.gothram }}</span>
+              }
+            </div>
+          </div>
+          <button
+            type="button"
+            class="icon-button danger-text"
+            aria-label="Delete family member"
+            (click)="remove('family_members', member.id, member.name)"
+          >
+            <app-icon name="trash" />
+          </button>
+        </article>
+      } @empty {
+        <div class="empty-state card">
+          <app-icon name="family" />
+          <h2>No family members yet</h2>
+          <p>Add names, birthdays, blood groups and optional astrology details.</p>
+        </div>
+      }
+    }
+    @case ('hospital') {
+      @for (record of hospitals(); track record.id) {
+        <article class="record card">
+          <div class="record-icon"><app-icon name="hospital" /></div>
+          <div>
+            <h2>{{ record.hospitalName }}</h2>
+            <p>{{ record.patientName }} · {{ record.department || 'Department not recorded' }}</p>
+            <div class="details">
+              <span [class.missing]="!record.opNumber">{{
+                record.opNumber ? 'OP ' + record.opNumber : 'OP number not provided'
+              }}</span>
+              @for (contact of record.contacts; track contact) {
+                <button type="button" (click)="call(contact)">{{ contact }}</button>
+              }
+            </div>
+          </div>
+          <div class="record-actions">
+            @if (record.opNumber) {
+              <button
+                type="button"
+                class="icon-button"
+                aria-label="Copy OP number"
+                (click)="copy(record.opNumber, 'OP number')"
+              >
+                <app-icon name="copy" />
+              </button>
+            }
+            <button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete hospital record"
+              (click)="remove('hospital_op_records', record.id, record.hospitalName)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty-state card">
+          <app-icon name="hospital" />
+          <h2>No hospital OP records</h2>
+          <p>Keep OP numbers and hospital contacts easy to find.</p>
+        </div>
+      }
+    }
+    @case ('insurance') {
+      @for (record of insurance(); track record.id) {
+        <article class="record card">
+          <div class="record-icon"><app-icon name="insurance" /></div>
+          <div>
+            <h2>{{ record.providerName }}</h2>
+            <p>
+              {{ record.policyName || 'Medical insurance' }}
+              @if (record.tpaName) {
+                · TPA: {{ record.tpaName }}
+              }
+            </p>
+            <div class="details">
+              @if (record.policyNumber) {
+                <button type="button" (click)="copy(record.policyNumber, 'Policy number')">
+                  Policy {{ record.policyNumber }}
+                </button>
+              }
+              @for (contact of record.contacts; track contact) {
+                <button type="button" (click)="call(contact)">{{ contact }}</button>
+              }
+            </div>
+          </div>
+          <button
+            type="button"
+            class="icon-button danger-text"
+            aria-label="Delete insurance record"
+            (click)="remove('medical_insurance', record.id, record.providerName)"
+          >
+            <app-icon name="trash" />
+          </button>
+        </article>
+      } @empty {
+        <div class="empty-state card">
+          <app-icon name="insurance" />
+          <h2>No insurance records</h2>
+          <p>Store insurer and optional TPA contacts privately.</p>
+        </div>
+      }
+    }
+    @case ('items') {
+      <aside class="medical-note">
+        <app-icon name="info" /> Use medicines only according to advice from a qualified medical
+        professional or the product instructions.
+      </aside>
+      @for (item of items(); track item.id) {
+        <article class="record card">
+          <div class="record-icon">
+            <app-icon [name]="item.itemType === 'medicine' ? 'medicine' : 'sparkle'" />
+          </div>
+          <div>
+            <h2>{{ item.name }}</h2>
+            <p>
+              {{ item.itemType === 'medicine' ? 'Medicine' : 'Toiletry' }} · Used for
+              {{ item.usedFor }}
+            </p>
+            <div class="details">
+              @if (memberName(item.familyMemberId)) {
+                <span>Used by {{ memberName(item.familyMemberId) }}</span>
+              }
+              @if (item.brand) {
+                <span>{{ item.brand }}</span>
+              }
+            </div>
+          </div>
+          <button
+            type="button"
+            class="icon-button danger-text"
+            aria-label="Delete important item"
+            (click)="remove('important_items', item.id, item.name)"
+          >
+            <app-icon name="trash" />
+          </button>
+        </article>
+      } @empty {
+        <div class="empty-state card">
+          <app-icon name="medicine" />
+          <h2>No medicines or toiletries</h2>
+          <p>Store reference information only—Personix does not give medical advice.</p>
+        </div>
+      }
+    }
+    @case ('blood') {
+      @for (record of bloodRecords(); track record.id) {
+        <article class="record card">
+          <div class="blood-badge">{{ bloodLabel(record) }}</div>
+          <div>
+            <h2>{{ record.personName }}</h2>
+            <p>
+              {{ bloodLabel(record) }}
+              @if (record.lastVerifiedDate) {
+                · Verified {{ record.lastVerifiedDate }}
+              }
+            </p>
+          </div>
+          <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Copy blood group"
+              (click)="copy(record.personName + ': ' + bloodLabel(record), 'Blood group')"
+            >
+              <app-icon name="copy" /></button
+            ><button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete blood group"
+              (click)="remove('blood_group_records', record.id, record.personName)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty-state card">
+          <app-icon name="blood" />
+          <h2>No blood groups recorded</h2>
+          <p>
+            This section records user-provided information only and gives no compatibility advice.
+          </p>
+        </div>
+      }
+    }
+  }
+</section>
+@if (panelOpen()) {
+  <button
+    type="button"
+    class="editor-backdrop"
+    aria-label="Close editor"
+    (click)="close()"
+  ></button>
+  <section class="editor">
+    <header>
+      <h2>Add {{ tabs.find((tab) => tab.id === activeTab())?.label }}</h2>
+      <button type="button" class="icon-button" aria-label="Close" (click)="close()">
+        <app-icon name="close" />
+      </button>
+    </header>
+    @switch (activeTab()) {
+      @case ('members') {
+        <form [formGroup]="memberForm" (ngSubmit)="save()">
+          <label>Name *<input formControlName="name" /></label
+          ><label>Relationship *<input formControlName="relationship" /></label
+          ><label>Date of birth<input type="date" formControlName="dateOfBirth" /></label
+          ><label>Gender (optional)<input formControlName="gender" /></label
+          ><label>Phone<input type="tel" formControlName="phone" /></label
+          ><label
+            >Blood group<app-select-picker
+              formControlName="bloodGroup"
+              [options]="optionalBloodGroupOptions"
+              sheetTitle="Choose blood group" /></label
+          ><label
+            >Rasi (optional)<app-select-picker
+              formControlName="rasiId"
+              [options]="rasiOptions"
+              sheetTitle="Choose Rasi" /></label
+          ><label
+            >Nakshatra (optional)<app-select-picker
+              formControlName="nakshatraId"
+              [options]="nakshatraOptions"
+              sheetTitle="Choose Nakshatra" /></label
+          ><label
+            >Gothram<input formControlName="gothram" list="gothram-values" /><datalist
+              id="gothram-values"
+            >
+              @for (member of members(); track member.id) {
+                @if (member.gothram) {
+                  <option [value]="member.gothram"></option>
+                }
+              }</datalist></label
+          ><label class="wide">Notes<textarea formControlName="notes"></textarea></label
+          ><label class="check"
+            ><input type="checkbox" formControlName="important" /> Important</label
+          >
+          <div class="form-actions wide">
+            <button class="button" type="submit">Save family member</button>
+          </div>
+        </form>
+      }
+      @case ('hospital') {
+        <form [formGroup]="hospitalForm" (ngSubmit)="save()">
+          <label>Hospital name *<input formControlName="hospitalName" /></label
+          ><label>Branch<input formControlName="branch" /></label
+          ><label
+            >Contact numbers *<input
+              formControlName="contacts"
+              placeholder="Comma separated" /></label
+          ><label>Patient name *<input formControlName="patientName" /></label
+          ><label
+            >Link family member<app-select-picker
+              formControlName="familyMemberId"
+              [options]="memberOptions()"
+              sheetTitle="Link family member" /></label
+          ><label>OP number (optional)<input formControlName="opNumber" /></label
+          ><label>Department<input formControlName="department" /></label
+          ><label>Doctor<input formControlName="doctorName" /></label
+          ><label>Last visit<input type="date" formControlName="lastVisitDate" /></label
+          ><label>Website<input type="url" formControlName="website" /></label
+          ><label class="wide">Notes<textarea formControlName="notes"></textarea></label
+          ><label class="check"
+            ><input type="checkbox" formControlName="important" /> Important</label
+          >
+          <div class="form-actions wide">
+            <button class="button" type="submit">Save OP record</button>
+          </div>
+        </form>
+      }
+      @case ('insurance') {
+        <form [formGroup]="insuranceForm" (ngSubmit)="save()">
+          <label>Provider name *<input formControlName="providerName" /></label
+          ><label>Policy name<input formControlName="policyName" /></label
+          ><label>Policy number<input formControlName="policyNumber" /></label
+          ><label>TPA name (optional)<input formControlName="tpaName" /></label
+          ><label
+            >Contact numbers<input
+              formControlName="contacts"
+              placeholder="Comma separated" /></label
+          ><label
+            >Email addresses<input formControlName="emails" placeholder="Comma separated" /></label
+          ><label>Website<input type="url" formControlName="website" /></label
+          ><label>Start date<input type="date" formControlName="startDate" /></label
+          ><label>Expiry date<input type="date" formControlName="expiryDate" /></label
+          ><label class="wide">Notes<textarea formControlName="notes"></textarea></label
+          ><label class="check"
+            ><input type="checkbox" formControlName="important" /> Important</label
+          >
+          <div class="form-actions wide">
+            <button class="button" type="submit">Save insurance</button>
+          </div>
+        </form>
+      }
+      @case ('items') {
+        <form [formGroup]="itemForm" (ngSubmit)="save()">
+          <label>Item name *<input formControlName="name" /></label
+          ><label
+            >Type<app-select-picker
+              formControlName="itemType"
+              [options]="itemTypeOptions"
+              sheetTitle="Choose reference type" /></label
+          ><label>Used for *<input formControlName="usedFor" /></label
+          ><label
+            >Used by<app-select-picker
+              formControlName="familyMemberId"
+              [options]="optionalMemberOptions()"
+              sheetTitle="Choose family member" /></label
+          ><label>Brand<input formControlName="brand" /></label
+          ><label>Form<input formControlName="form" placeholder="Tablet, cream…" /></label
+          ><label>Strength<input formControlName="strength" /></label
+          ><label>Doctor / hospital reference<input formControlName="doctorOrHospital" /></label
+          ><label class="wide"
+            >Usage instructions<input formControlName="usageInstructions" /></label
+          ><label class="wide">Notes<textarea formControlName="notes"></textarea></label
+          ><label class="check"
+            ><input type="checkbox" formControlName="favourite" /> Favourite</label
+          >
+          <div class="form-actions wide">
+            <button class="button" type="submit">Save reference</button>
+          </div>
+        </form>
+      }
+      @case ('blood') {
+        <form [formGroup]="bloodForm" (ngSubmit)="save()">
+          <label>Person name *<input formControlName="personName" /></label
+          ><label
+            >Link family member<app-select-picker
+              formControlName="familyMemberId"
+              [options]="memberOptions()"
+              sheetTitle="Link family member" /></label
+          ><label
+            >Blood group<app-select-picker
+              formControlName="bloodGroup"
+              [options]="bloodGroupOptions"
+              sheetTitle="Choose blood group"
+          /></label>
+          @if (bloodForm.controls.bloodGroup.value === 'Custom') {
+            <label>Custom blood group<input formControlName="customBloodGroup" /></label>
+          }
+          <label>Last verified<input type="date" formControlName="lastVerifiedDate" /></label
+          ><label>Source of information<input formControlName="source" /></label
+          ><label class="wide">Notes<textarea formControlName="notes"></textarea></label>
+          <div class="form-actions wide">
+            <button class="button" type="submit">Save blood group</button>
+          </div>
+        </form>
+      }
+    }
+  </section>
+}

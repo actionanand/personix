@@ -1,0 +1,219 @@
+.eyebrow {
+  margin: 0;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.settings-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.setting-section {
+  min-width: 0;
+  overflow: hidden;
+}
+.setting-section > header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.setting-section > header > span {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  place-items: center;
+  border-radius: 0.85rem;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.setting-section > header > span.adult {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.setting-section h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.setting-section header p {
+  margin: 0.2rem 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.setting-list {
+  display: grid;
+}
+.setting-list > button,
+.row,
+.stack {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.6rem;
+  align-items: center;
+  min-height: 4rem;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+.setting-list > button > span,
+.row > span,
+.stack > span {
+  display: grid;
+  gap: 0.15rem;
+}
+.setting-list strong {
+  font-size: 0.86rem;
+}
+.setting-list small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+.setting-list em {
+  color: var(--primary);
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.row select {
+  width: auto;
+  min-width: 7rem;
+}
+.row input[type='checkbox'] {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.stack {
+  grid-template-columns: 1fr;
+}
+.stack input {
+  margin-top: 0.3rem;
+}
+.destructive-row {
+  color: var(--danger) !important;
+}
+.destructive-row app-icon {
+  color: var(--danger);
+}
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 1rem;
+}
+.theme-grid button {
+  position: relative;
+  display: grid;
+  min-height: 5rem;
+  place-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  color: var(--muted);
+  background: var(--surface-muted);
+}
+.theme-grid button.selected {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.theme-grid button app-icon:last-child:not(:first-child) {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.pin-dialog-backdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 13, 8, 0.62);
+  backdrop-filter: blur(2px);
+}
+.pin-dialog {
+  position: fixed;
+  z-index: 121;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(calc(100% - 2rem), 34rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 1.4rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-50%, -50%);
+}
+.pin-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.pin-dialog h2,
+.pin-dialog .eyebrow {
+  margin: 0;
+}
+.pin-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  padding: 1rem;
+}
+.pin-fields label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.pin-dialog footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 50rem) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 38rem) {
+  .pin-dialog {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 88dvh;
+    border-radius: 1.4rem 1.4rem 0 0;
+    transform: none;
+  }
+  .pin-fields {
+    grid-template-columns: 1fr;
+  }
+  .theme-grid {
+    grid-template-columns: 1fr;
+  }
+  .theme-grid button {
+    grid-template-columns: auto 1fr;
+    min-height: 3.3rem;
+    justify-items: start;
+    padding: 0 1rem;
+  }
+}

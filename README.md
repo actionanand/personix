@@ -1,291 +1,82 @@
 # Personix
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.0.
+Personix is a private, offline-first personal organiser built with Angular 22 and Capacitor. It keeps saved links, family and medical references, vehicles, temporary notes and checklists on the device—without a cloud account, analytics or advertising.
 
-## Development server
+## Storage and privacy
 
-To start a local development server, run:
+- Browser records use a versioned IndexedDB database.
+- Android records use one versioned SQLite database through `@capacitor-community/sqlite`.
+- Feature components use repositories and never access IndexedDB or SQLite directly.
+- Adult content is hidden by default, including from Home, global search and thumbnail loading.
+- Browser metadata fetching is off by default and requires explicit privacy consent; when enabled, requests use only `https://api.microlink.io/`.
+- Android fetches metadata directly and synchronises missing post previews from the Content screen.
+- Backups use PBKDF2-derived AES-256-GCM encryption. Application PINs, biometric credentials and Android Keystore keys are excluded.
+- Application PINs are stored only as a salted, versioned PBKDF2 verifier. Android biometric unlock wraps the PIN with a non-exportable authentication-bound Keystore key.
 
-```bash
-npm run develop
-```
+## Features
 
-Once the server is running, open your browser and navigate to `http://localhost:3030/`. The application will automatically reload whenever you modify any of the source files.
+- Separate Video and Post/Link tabs with Scrollix-compatible YouTube, Instagram, Facebook, TikTok, Dailymotion, Vimeo, share-link and post handling
+- Automatically populated OG metadata, categories, tags and intended recipients
+- Independent family members, hospital OP, insurance/TPA, medicine, toiletry and blood-group records
+- Optional Rasi, Nakshatra (English and Tamil) and Gothram details
+- Vehicle registration and expiry references
+- Searchable self-chat-style temporary notes with incremental loading
+- Multiple lightweight checklists
+- Grouped global search that respects adult-content visibility
+- Custom confirmation dialogs, destructive confirmation and queued snackbars
+- Light, dark and automatic themes with matching Android system bars
+- Encrypted selective backup, validation, merge and replace restore
+- Generated Android launcher/splash branding from `public/personix.png`
 
-## Cloning Guide
+## Development
 
-1.  Clone only the remote primary HEAD (default: origin/main)
-
-```bash
-git clone <url> --single-branch
-```
-
-2. Only specific branch
-
-```bash
-git clone <url> --branch <branch> --single-branch [<folder>]
-```
-
-```bash
-git clone <url> --branch <branch>
-```
-
-3. Cloning repositories using degit
-   - main branch is default.
-
-```bash
-npx degit github:user/repo#branch-name <folder-name>
-```
-
-4. Cloning repositories using **gitpick**
+Use Node 24.16 or a compatible version listed in `package.json`.
 
 ```bash
-npx gitpick github_proj_url -b branch-name
+npm ci
+npm start
+npm run lint
+npm test -- --watch=false
+npm run build
 ```
 
-5. Cloning this project with skeleton
+The native packages required by this implementation are already declared in `package.json`:
 
 ```bash
-git clone https://github.com/actionanand/personix.git --branch 1-skeleton new-proj-name
+npm i @capacitor/core @capacitor/android @capacitor/cli @capacitor/filesystem @capacitor/camera @capacitor/splash-screen @capacitor-community/sqlite
 ```
+
+Run that command only when updating from an older checkout without the current lock file. The project already uses `@lucide/angular` for all interface icons.
+
+## Restore fixture
+
+Use [`sample-data/personix-sample.pxbackup`](sample-data/personix-sample.pxbackup) to verify restore with passphrase `12345678`. The fixture is encrypted with the same PBKDF2/AES-256-GCM format as application exports and includes 15 safe sample records across the main modules.
+
+Regenerate and verify it with `npm run generate-sample-backup`.
+
+## Android
 
 ```bash
-npx degit github:actionanand/personix#1-skeleton new-proj-name
+npm run android:add
+npm run android:sync
+npm run android:open
 ```
 
-```bash
-npx gitpick https://github.com/actionanand/personix -b 1-skeleton
-```
+`android:sync` builds Angular, synchronises Capacitor, then applies the idempotent Personix patch for the splash, system bars, Keystore biometrics, Android metadata fetching and R8. The generated `android/` directory is intentionally ignored.
 
-## Automate using `Prettier`, `Es Lint` and `Husky`
+See [documentation/ANDROID.md](documentation/ANDROID.md), [documentation/ANDROID_SPECIAL_CASES.md](documentation/ANDROID_SPECIAL_CASES.md), and [documentation/R8-DEOBFUSCATION.md](documentation/R8-DEOBFUSCATION.md).
 
-1. Install the compatible node version
+## GitHub Actions releases
 
-```bash
-  nvm install v24.16.0
-```
+Normal branches produce a debug APK artifact. `main-android` produces APK, AAB, R8 mapping and Play Store icon files under `releases/`, automatically increments `versionCode`, and commits the release files. `v*` tags also create a GitHub Release.
 
-2. Install and Configure Prettier
-   - Install prettier as below:
+Signed releases use these repository secrets:
 
-   ```bash
-     npm install prettier -D
-   ```
+| Secret              | Purpose                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `KEYSTORE_BASE64`   | Base64-encoded release keystore                          |
+| `KEYSTORE_PASSWORD` | Keystore password                                        |
+| `KEY_ALIAS`         | Signing alias (`personix` for the supplied generator)    |
+| `KEY_PASSWORD`      | Key password; for PKCS12, normally the keystore password |
 
-   - Create a `.prettierrc.yml` file and write down the format as below: - [online ref](https://prettier.io/docs/en/options.html)
-
-   ```yml
-   trailingComma: 'all'
-   tabWidth: 2
-   useTabs: false
-   semi: true
-   singleQuote: true
-   bracketSpacing: true
-   bracketSameLine: true
-   arrowParens: 'avoid'
-   printWidth: 120
-   overrides:
-     - files:
-         - '*.js'
-         - '*.jsx'
-       options:
-         bracketSpacing: true
-         jsxSingleQuote: true
-         semi: true
-         singleQuote: true
-         tabWidth: 2
-         useTabs: false
-     - files:
-         - '*.ts'
-       options:
-         tabWidth: 2
-   ```
-
-   - Create a `.prettierignore` file and write as below(sample)
-
-   ```gitignore
-   # Ignore artifacts:
-   build
-   coverage
-   e2e
-   node_modules
-   dist
-   dest
-   reports
-
-   # Ignore files
-   *.lock
-   package-lock.json
-   yarn.lock
-   ```
-
-3. Install `Es Lint`, if not installed
-
-```bash
-ng add @angular-eslint/schematics
-```
-
-if error comes, use the below command
-
-```shell
-ng add @angular-eslint/schematics@22.1.0
-# or
-ng add @angular-eslint/schematics@next
-```
-
-4. Configure pre-commit hooks
-
-Pre-commit hooks are a nice way to run certain checks to ensure clean code. This can be used to format staged files if for some reason they weren’t automatically formatted during editing. [husky](https://github.com/typicode/husky) can be used to easily configure git hooks to prevent bad commits. We will use this along with [pretty-quick](https://github.com/azz/pretty-quick) to run Prettier on our changed files. Install these packages, along with [npm-run-all](https://github.com/mysticatea/npm-run-all), which will make it easier for us to run npm scripts:
-
-```bash
-npm install -D husky pretty-quick npm-run-all
-```
-
-To configure the pre-commit hook, simply add a `precommit` npm script. We want to first run Prettier, then run TSLint on the formatted files. To make our scripts cleaner, I am using the npm-run-all package, which gives you two commands, `run-s` to run scripts in sequence, and `run-p` to run scripts in parallel:
-
-```json
-  "precommit": "run-s format:fix lint",
-  "format:fix": "pretty-quick --staged",
-  "format:check": "prettier --config ./.prettierrc --list-different \"src/{app,environments,assets}/**/*{.ts,.js,.json,.css,.scss}\"",
-  "format:all": "prettier --config ./.prettierrc --write \"src/{app,environments,assets}/**/*{.ts,.js,.json,.css,.scss}\"",
-  "lint": "ng lint",
-```
-
-5. Initialize husky
-   - Run it once
-
-   ```bash
-     npx husky init
-   ```
-
-   - Add a hook
-
-   ```bash
-     echo "npm run precommit" > .husky/pre-commit
-   ```
-
-   - Make a commit
-
-   ```bash
-     git commit -m "Keep calm and commit"
-     # `npm run precommit and npm test` will run every time you commit
-   ```
-
-6. How to skip prettier format only in particular file
-   1. JS
-
-   ```js
-   matrix(1, 0, 0, 0, 1, 0, 0, 0, 1);
-
-   // prettier-ignore
-   matrix(
-       1, 0, 0,
-       0, 1, 0,
-       0, 0, 1
-     )
-   ```
-
-   2. JSX
-
-   ```jsx
-   <div>
-     {/* prettier-ignore */}
-     <span     ugly  format=''   />
-   </div>
-   ```
-
-   3. HTML
-
-   ```html
-   <!-- prettier-ignore -->
-   <div         class="x"       >hello world</div            >
-
-   <!-- prettier-ignore-attribute -->
-   <div
-     (mousedown)="       onStart    (    )         "
-     (mouseup)="         onEnd      (    )         "
-   ></div>
-
-   <!-- prettier-ignore-attribute (mouseup) -->
-   <div (mousedown)="onStart()" (mouseup)="         onEnd      (    )         "></div>
-   ```
-
-   4. CSS
-
-   ```css
-   /* prettier-ignore */
-   .my    ugly rule
-     {
-   
-     }
-   ```
-
-   5. Markdown
-
-   ```md
-     <!-- prettier-ignore -->
-
-   Do not format this
-   ```
-
-   6. YAML
-
-   ```yml
-   # prettier-ignore
-   key  : value
-     hello: world
-   ```
-
-   7. For more, please [check](https://prettier.io/docs/en/ignore.html)
-
-## Generate environment files
-
-```bash
-ng generate environments
-```
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Never commit a keystore, password, PIN or encryption key.

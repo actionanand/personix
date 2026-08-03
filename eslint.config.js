@@ -36,6 +36,13 @@ module.exports = defineConfig([
   {
     files: ['**/*.html'],
     extends: [angular.configs.templateRecommended, angular.configs.templateAccessibility],
-    rules: {},
+    rules: {
+      '@angular-eslint/template/label-has-associated-control': [
+        'error',
+        {
+          controlComponents: ['app-select-picker'],
+        },
+      ],
+    },
   },
 ]);

@@ -1,0 +1,134 @@
+import { Component, computed, input } from '@angular/core';
+import {
+  LucideArchive,
+  LucideBookHeart,
+  LucideCalendarCheck,
+  LucideCarFront,
+  LucideCheck,
+  LucideChevronDown,
+  LucideChevronRight,
+  LucideCircleAlert,
+  LucideCircleHelp,
+  LucideCirclePlay,
+  LucideClipboardCheck,
+  LucideCopy,
+  LucideDatabaseBackup,
+  LucideDownload,
+  LucideEllipsisVertical,
+  LucideEye,
+  LucideEyeOff,
+  LucideFileText,
+  LucideFingerprint,
+  LucideFolder,
+  LucideGlobe2,
+  LucideHeart,
+  LucideHospital,
+  LucideInfo,
+  LucideLink2,
+  LucideLockKeyhole,
+  LucideMenu,
+  LucideMessageSquareText,
+  LucideMoon,
+  LucidePencil,
+  LucidePill,
+  LucidePictureInPicture2,
+  LucidePlus,
+  LucideRefreshCw,
+  LucideSave,
+  LucideSearch,
+  LucideSettings,
+  LucideShieldAlert,
+  LucideShieldCheck,
+  LucideSparkles,
+  LucideStar,
+  LucideSun,
+  LucideTag,
+  LucideTrash2,
+  LucideUpload,
+  LucideUsersRound,
+  LucideVideo,
+  LucideVolume2,
+  LucideVolumeX,
+  LucideWalletCards,
+  LucideX,
+  LucideDynamicIcon,
+  type LucideIconInput,
+} from '@lucide/angular';
+
+const ICONS: Readonly<Record<string, LucideIconInput>> = {
+  archive: LucideArchive,
+  backup: LucideDatabaseBackup,
+  blood: LucideBookHeart,
+  calendar: LucideCalendarCheck,
+  car: LucideCarFront,
+  check: LucideCheck,
+  chevron: LucideChevronRight,
+  'chevron-down': LucideChevronDown,
+  alert: LucideCircleAlert,
+  'circle-help': LucideCircleHelp,
+  'circle-play': LucideCirclePlay,
+  checklist: LucideClipboardCheck,
+  copy: LucideCopy,
+  download: LucideDownload,
+  eye: LucideEye,
+  'eye-off': LucideEyeOff,
+  file: LucideFileText,
+  biometric: LucideFingerprint,
+  folder: LucideFolder,
+  globe: LucideGlobe2,
+  heart: LucideHeart,
+  hospital: LucideHospital,
+  info: LucideInfo,
+  link: LucideLink2,
+  lock: LucideLockKeyhole,
+  menu: LucideMenu,
+  more: LucideEllipsisVertical,
+  note: LucideMessageSquareText,
+  moon: LucideMoon,
+  edit: LucidePencil,
+  medicine: LucidePill,
+  plus: LucidePlus,
+  refresh: LucideRefreshCw,
+  save: LucideSave,
+  search: LucideSearch,
+  settings: LucideSettings,
+  'shield-alert': LucideShieldAlert,
+  shield: LucideShieldCheck,
+  sparkle: LucideSparkles,
+  star: LucideStar,
+  sun: LucideSun,
+  tag: LucideTag,
+  trash: LucideTrash2,
+  upload: LucideUpload,
+  family: LucideUsersRound,
+  insurance: LucideWalletCards,
+  close: LucideX,
+  video: LucideVideo,
+  volume: LucideVolume2,
+  'volume-off': LucideVolumeX,
+  pip: LucidePictureInPicture2,
+};
+
+@Component({
+  selector: 'app-icon',
+  imports: [LucideDynamicIcon],
+  template: `<svg [lucideIcon]="icon()" aria-hidden="true" focusable="false"></svg>`,
+  styles: `
+    :host {
+      display: inline-grid;
+      width: 1.25rem;
+      height: 1.25rem;
+      flex: 0 0 auto;
+      place-items: center;
+    }
+    svg {
+      width: 100%;
+      height: 100%;
+      stroke-width: 1.9;
+    }
+  `,
+})
+export class AppIcon {
+  readonly name = input('shield');
+  readonly icon = computed(() => ICONS[this.name()] ?? LucideShieldCheck);
+}

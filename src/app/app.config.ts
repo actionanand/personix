@@ -1,11 +1,17 @@
+import { provideHttpClient } from '@angular/common/http';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter } from '@angular/router';
-
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { providePersonixDatabase } from './core/database/database.provider';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes)
-  ]
+    provideHttpClient(),
+    providePersonixDatabase(),
+    provideRouter(
+      routes,
+      withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' }),
+    ),
+  ],
 };

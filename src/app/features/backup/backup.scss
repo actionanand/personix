@@ -1,0 +1,140 @@
+.eyebrow {
+  margin: 0;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.backup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.backup-card {
+  padding: 1.15rem;
+}
+.card-icon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.9rem;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.backup-card h2 {
+  margin: 0.8rem 0 0.3rem;
+  font-size: 1.1rem;
+}
+.backup-card > p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.backup-card form {
+  display: grid;
+  gap: 0.8rem;
+}
+fieldset {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+}
+legend {
+  padding: 0 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+fieldset label {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  font-size: 0.82rem;
+}
+.password {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.validate-backup {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+.file-picker {
+  display: grid;
+  min-height: 7rem;
+  place-items: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 2px dashed var(--border-strong);
+  border-radius: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  cursor: pointer;
+}
+.file-picker input {
+  position: absolute;
+  width: 1px;
+  opacity: 0;
+}
+.file-picker app-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  color: var(--primary);
+}
+.counts {
+  margin: 0.8rem 0;
+  padding: 0.7rem;
+  border-radius: 0.8rem;
+  background: var(--surface-muted);
+}
+.counts h3 {
+  margin: 0.1rem 0 0.5rem;
+  font-size: 0.9rem;
+}
+.counts p {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.35rem 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: capitalize;
+}
+.counts strong {
+  color: var(--text);
+}
+.restore-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.security-note {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+.security-note > app-icon {
+  width: 2rem;
+  height: 2rem;
+  color: var(--primary);
+}
+.security-note h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.security-note p {
+  margin: 0.3rem 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+@media (max-width: 42rem) {
+  .backup-grid {
+    grid-template-columns: 1fr;
+  }
+}
