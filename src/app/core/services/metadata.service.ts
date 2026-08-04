@@ -85,6 +85,39 @@ export class MetadataService {
     }
   }
 
+  // Follows a share-link redirect to its canonical URL. Runs independently of the
+  // metadata toggles because a resolved URL is required for the video to play.
+  // Android resolves only through the native bridge; third-party services such as
+  // microlink are never contacted on Android.
+  async resolveShareUrl(url: string, settings: AppSettings): Promise<string | null> {
+    if (this.native.isAndroid()) {
+      try {
+        const result = await this.native.fetchMetadata(
+          url,
+          settings.metadataTimeoutMs,
+          settings.maxMetadataImageBytes,
+        );
+        return this.safeUrl(result?.url) ?? null;
+      } catch {
+        return null;
+      }
+    }
+    try {
+      const endpoint = new URL('https://api.microlink.io/');
+      endpoint.searchParams.set('url', url);
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), settings.metadataTimeoutMs);
+      const response = await fetch(endpoint, { signal: controller.signal });
+      window.clearTimeout(timer);
+      if (!response.ok) return null;
+      const body = (await response.json()) as ThirdPartyResponse;
+      if (body.status && body.status !== 'success') return null;
+      return this.safeUrl(body.data?.url) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   private patch(
     result: NativeMetadataResult,
     source: MetadataPatch['metadataSource'],

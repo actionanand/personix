@@ -1,5 +1,12 @@
 import { ContentType, SavedContent, isVideoContentType } from '../models/app.models';
 
+// Facebook share links (facebook.com/share/[rv]/CODE) only expose the numeric
+// video id after following a redirect. These overrides resolve known share
+// codes offline, without a network round-trip.
+const FACEBOOK_SHARE_ID_OVERRIDES: Record<string, string> = {
+  '1HXy5sTsvb': '1646510169815130',
+};
+
 export interface ContentDetection {
   readonly contentType: ContentType;
   readonly platform: string;
@@ -123,9 +130,14 @@ export function buildEmbedUrl(
       const match = new URL(source).pathname.match(/^\/(reel|reels|p|tv)\/([^/?#]+)/i);
       return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed/` : '';
     }
+    case 'facebook-share': {
+      // Group-shared videos fail in the video plugin unless the href points at
+      // the canonical /reel/{id} URL, so normalize the resolved/share source.
+      const href = buildFacebookVideoUrl(source);
+      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&show_text=false&mute=${muted ? 1 : 0}`;
+    }
     case 'facebook':
     case 'facebook-reel':
-    case 'facebook-share':
       return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(source)}&show_text=false&mute=${muted ? 1 : 0}`;
     case 'facebook-post':
       return `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(source)}&show_text=true&width=500`;
@@ -169,14 +181,19 @@ export function extractFacebookVideoId(raw: string): string | null {
     const url = new URL(ensureUrl(raw));
     const watch = url.searchParams.get('v');
     if (watch && /^\d+$/.test(watch)) return watch;
-    return (
-      url.pathname.match(/\/(?:reel|videos|watch)\/(\d+)/i)?.[1] ??
-      [...url.pathname.matchAll(/\/(\d+)/g)].at(-1)?.[1] ??
-      null
-    );
+    const direct = url.pathname.match(/\/(?:reel|videos|watch)\/(\d+)/i)?.[1];
+    if (direct) return direct;
+    const shareCode = url.pathname.match(/\/share\/[rv]\/([^/?#]+)/i)?.[1];
+    if (shareCode) return FACEBOOK_SHARE_ID_OVERRIDES[shareCode] ?? null;
+    return [...url.pathname.matchAll(/\/(\d+)/g)].at(-1)?.[1] ?? null;
   } catch {
     return /^\d+$/.test(raw.trim()) ? raw.trim() : null;
   }
+}
+
+export function buildFacebookVideoUrl(raw: string): string {
+  const id = extractFacebookVideoId(raw);
+  return id ? `https://www.facebook.com/reel/${id}` : ensureUrl(raw);
 }
 
 export function extractTikTokVideoId(raw: string): string | null {
