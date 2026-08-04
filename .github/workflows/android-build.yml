@@ -99,11 +99,11 @@ jobs:
             SIZE=${SIZES[$DIR]}
             ICON_SIZE=$((SIZE * 64 / 100))
             mkdir -p "android/app/src/main/res/$DIR"
-            convert public/personix.png -background none -resize "${ICON_SIZE}x${ICON_SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "android/app/src/main/res/$DIR/ic_launcher.png"
+            convert public/personix.png -trim +repage -background none -resize "${ICON_SIZE}x${ICON_SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "android/app/src/main/res/$DIR/ic_launcher.png"
             cp "android/app/src/main/res/$DIR/ic_launcher.png" "android/app/src/main/res/$DIR/ic_launcher_round.png"
             cp "android/app/src/main/res/$DIR/ic_launcher.png" "android/app/src/main/res/$DIR/ic_launcher_foreground.png"
           done
-          convert public/personix.png -background none -resize 420x420 -gravity center -extent 512x512 releases/playstore-icon.png
+          convert public/personix.png -trim +repage -background none -resize 420x420 -gravity center -extent 512x512 releases/playstore-icon.png
 
       - name: Build debug APK for normal branches
         if: github.ref != 'refs/heads/main-android' && !startsWith(github.ref, 'refs/tags/v')

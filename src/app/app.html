@@ -57,8 +57,12 @@
   <div class="app-shell">
     <header class="app-header">
       <a routerLink="/content" class="brand" aria-label="Personix content">
-        <img ngSrc="personix.png" width="48" height="48" alt="" priority />
-        <span><strong>Personix</strong><small>Private. Local. Yours.</small></span>
+        <span class="brand-logo" aria-hidden="true">
+          <img ngSrc="personix.png" width="48" height="48" alt="" priority />
+        </span>
+        <span class="brand-copy"
+          ><strong>Personix</strong><small>Private. Local. Yours.</small></span
+        >
       </a>
       <div class="header-actions">
         <a routerLink="/search" class="icon-button" aria-label="Search"

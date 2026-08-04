@@ -26,12 +26,21 @@
   color: var(--text);
   text-decoration: none;
 }
-.brand img {
+.brand-logo {
+  display: grid;
   width: 3rem;
   height: 3rem;
-  object-fit: contain;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 50%;
 }
-.brand span {
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.45);
+}
+.brand-copy {
   display: grid;
 }
 .brand strong {

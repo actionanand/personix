@@ -1,14 +1,11 @@
 import { Injectable } from '@angular/core';
+import { CapacitorSQLite, type CapacitorSQLitePlugin } from '@capacitor-community/sqlite';
 import { DatabaseTable, TableRecordMap } from '../models/app.models';
 import { DATABASE_TABLES, DatabasePort } from './database.port';
 
 interface SqlitePayloadRow {
   readonly payload: string;
 }
-type SqlitePlugin = NonNullable<
-  NonNullable<NonNullable<Window['Capacitor']>['Plugins']>['CapacitorSQLite']
->;
-
 const DATABASE_NAME = 'personix';
 const SCHEMA_VERSION = 1;
 
@@ -19,17 +16,19 @@ export class SqliteDatabase implements DatabasePort {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     const plugin = this.plugin();
-    const connection = await plugin.isConnection({ database: DATABASE_NAME, readonly: false });
-    if (!connection.result)
-      await plugin.createConnection({
-        database: DATABASE_NAME,
-        encrypted: false,
-        mode: 'no-encryption',
-        version: SCHEMA_VERSION,
-        readonly: false,
-      });
-    const open = await plugin.isDBOpen({ database: DATABASE_NAME, readonly: false });
-    if (!open.result) await plugin.open({ database: DATABASE_NAME, readonly: false });
+    try {
+      await plugin.closeConnection({ database: DATABASE_NAME, readonly: false });
+    } catch {
+      // A fresh application process has no connection to close.
+    }
+    await plugin.createConnection({
+      database: DATABASE_NAME,
+      encrypted: false,
+      mode: 'no-encryption',
+      version: SCHEMA_VERSION,
+      readonly: false,
+    });
+    await plugin.open({ database: DATABASE_NAME, readonly: false });
     await plugin.execute({ database: DATABASE_NAME, statements: this.schema(), transaction: true });
     this.initialized = true;
   }
@@ -197,10 +196,7 @@ export class SqliteDatabase implements DatabasePort {
     });
   }
 
-  private plugin(): SqlitePlugin {
-    const plugin = window.Capacitor?.Plugins?.CapacitorSQLite;
-    if (!plugin)
-      throw new Error('The Android SQLite plugin is unavailable. Run npm run android:sync.');
-    return plugin;
+  private plugin(): CapacitorSQLitePlugin {
+    return CapacitorSQLite;
   }
 }
