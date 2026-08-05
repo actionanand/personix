@@ -158,6 +158,7 @@ await writeTheme(resolve(resPath, 'values-night/styles.xml'), true);
 
 const java = `package ${appId};
 
+import android.app.Activity;
 import android.app.PictureInPictureParams;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -188,6 +189,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -207,6 +209,7 @@ public class MainActivity extends BridgeActivity {
   private static final String SECURITY_PREFS = "personix_security";
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
+  private ExportBridge exportBridge;
   private BiometricPrompt biometricPrompt;
   private boolean darkMode;
   private View launchOverlay;
@@ -216,14 +219,21 @@ public class MainActivity extends BridgeActivity {
     super.onCreate(state);
     darkMode = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     showLaunchOverlay();
+    exportBridge = new ExportBridge();
     getBridge().getWebView().addJavascriptInterface(new NativeBridge(), "PersonixNative");
     getBridge().getWebView().addJavascriptInterface(new SystemBarsBridge(), "PersonixSystemBars");
     getBridge().getWebView().addJavascriptInterface(new BiometricBridge(), "PersonixBiometric");
     getBridge().getWebView().addJavascriptInterface(new MetadataBridge(), "PersonixMetadata");
     getBridge().getWebView().addJavascriptInterface(new PipBridge(), "PersonixPip");
     getBridge().getWebView().addJavascriptInterface(new BrowserBridge(), "PersonixBrowser");
+    getBridge().getWebView().addJavascriptInterface(exportBridge, "PersonixExport");
     getBridge().getWebView().setBackgroundColor(Color.parseColor(darkMode ? "#07140F" : "#F3F8F5"));
     applyLaunchBars();
+  }
+
+  @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (exportBridge != null && exportBridge.handleActivityResult(requestCode, resultCode, data)) return;
+    super.onActivityResult(requestCode, resultCode, data);
   }
 
   @Override public void onResume() { super.onResume(); if (launchOverlay == null) applySystemBars(darkMode); }
@@ -246,6 +256,60 @@ public class MainActivity extends BridgeActivity {
       } catch (Exception ignored) { openWebUri(rawUrl); }
     }); }
     @JavascriptInterface public void openExternal(String rawUrl) { runOnUiThread(() -> openWebUri(rawUrl)); }
+  }
+
+  public class ExportBridge {
+    private static final int CREATE_BACKUP_REQUEST = 7319;
+    private byte[] pendingContents;
+    private String pendingFilename;
+
+    @JavascriptInterface public void exportBackup(String content, String requestedName) {
+      runOnUiThread(() -> {
+        if (pendingContents != null) {
+          dispatch("backup-export", false, "", "Another backup save is already in progress.");
+          return;
+        }
+        try {
+          pendingContents = content.getBytes(StandardCharsets.UTF_8);
+          pendingFilename = requestedName == null
+            ? "personix-backup.pxbackup"
+            : requestedName.replaceAll("[^A-Za-z0-9._-]", "-");
+          Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+          intent.addCategory(Intent.CATEGORY_OPENABLE);
+          intent.setType("application/octet-stream");
+          intent.putExtra(Intent.EXTRA_TITLE, pendingFilename);
+          startActivityForResult(intent, CREATE_BACKUP_REQUEST);
+        } catch (Exception error) {
+          pendingContents = null;
+          pendingFilename = null;
+          dispatch("backup-export", false, "", message(error));
+        }
+      });
+    }
+
+    boolean handleActivityResult(int requestCode, int resultCode, Intent data) {
+      if (requestCode != CREATE_BACKUP_REQUEST) return false;
+      byte[] contents = pendingContents;
+      String filename = pendingFilename;
+      pendingContents = null;
+      pendingFilename = null;
+      Uri destination = data == null ? null : data.getData();
+      if (resultCode != Activity.RESULT_OK || destination == null || contents == null) {
+        dispatch("backup-export", false, "", "Backup save cancelled.");
+        return true;
+      }
+      new Thread(() -> {
+        try (OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
+          if (output == null) throw new IllegalStateException("The selected backup file could not be opened.");
+          output.write(contents);
+          output.flush();
+          dispatch("backup-export", true, filename == null ? "" : filename, "");
+        } catch (Exception error) {
+          dispatch("backup-export", false, "", message(error));
+        }
+      }).start();
+      return true;
+    }
   }
 
   public class BiometricBridge {
@@ -411,5 +475,5 @@ public class PersonixPostActivity extends AppCompatActivity {
 `;
 await writeFile(postActivityPath, postActivityJava, 'utf8');
 console.log(
-  'Applied Personix branded splash, system bars, Keystore biometrics, direct metadata, in-app post browser, picture-in-picture and R8 patches.',
+  'Applied Personix branded splash, system bars, Keystore biometrics, native backup export, direct metadata, in-app post browser, picture-in-picture and R8 patches.',
 );

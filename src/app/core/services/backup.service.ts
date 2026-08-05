@@ -8,6 +8,9 @@ import {
   TableRecordMap,
 } from '../models/app.models';
 import { CryptoService } from './crypto.service';
+import { NativeIntegrationService } from './native-integration.service';
+
+export type BackupDelivery = 'native' | 'browser';
 
 const MODULE_TABLES: Readonly<Record<BackupModule, readonly DatabaseTable[]>> = {
   content: ['saved_content', 'content_categories', 'content_tags', 'content_recipients'],
@@ -28,6 +31,7 @@ const MODULE_TABLES: Readonly<Record<BackupModule, readonly DatabaseTable[]>> = 
 export class BackupService {
   private readonly database = inject(DATABASE);
   private readonly crypto = inject(CryptoService);
+  private readonly native = inject(NativeIntegrationService);
 
   async create(
     password: string,
@@ -58,16 +62,21 @@ export class BackupService {
     };
   }
 
-  download(envelope: BackupEnvelope): void {
-    const blob = new Blob([JSON.stringify(envelope)], {
+  async download(envelope: BackupEnvelope): Promise<BackupDelivery> {
+    const contents = JSON.stringify(envelope);
+    const filename = `personix-${envelope.createdAt.slice(0, 10)}.pxbackup`;
+    if (await this.native.exportBackup(contents, filename)) return 'native';
+
+    const blob = new Blob([contents], {
       type: 'application/vnd.personix.backup+json',
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `personix-${envelope.createdAt.slice(0, 10)}.pxbackup`;
+    anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
+    return 'browser';
   }
 
   async inspect(envelope: BackupEnvelope, password: string): Promise<BackupPayload> {
