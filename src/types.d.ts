@@ -25,5 +25,8 @@ declare global {
       openInApp(url: string, title: string): void;
       openExternal(url: string): void;
     };
+    readonly PersonixExport?: {
+      exportBackup(content: string, filename: string): void;
+    };
   }
 }

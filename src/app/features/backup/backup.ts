@@ -45,14 +45,14 @@ export class Backup {
         this.backupForm.controls.password.value,
         this.selectedModules(),
       );
-      this.backups.download(envelope);
-      this.feedback.notify('Encrypted backup created');
+      const delivery = await this.backups.download(envelope);
+      this.feedback.notify(
+        delivery === 'native' ? 'Encrypted backup saved' : 'Encrypted backup downloaded',
+      );
       this.backupForm.controls.password.reset();
     } catch (error) {
-      this.feedback.notify(
-        error instanceof Error ? error.message : 'Backup could not be created.',
-        'error',
-      );
+      const message = error instanceof Error ? error.message : 'Backup could not be created.';
+      this.feedback.notify(message, message.toLowerCase().includes('cancelled') ? 'info' : 'error');
     } finally {
       this.creating.set(false);
     }

@@ -80,6 +80,18 @@ export class NativeIntegrationService {
     return true;
   }
 
+  async exportBackup(content: string, filename: string): Promise<boolean> {
+    if (!this.isAndroid()) return false;
+    if (!window.PersonixExport)
+      throw new Error('Android backup saving is unavailable in this build.');
+    await this.waitForResult(
+      'backup-export',
+      () => window.PersonixExport?.exportBackup(content, filename),
+      10 * 60_000,
+    );
+    return true;
+  }
+
   private waitForResult(action: string, invoke: () => void, timeoutMs = 60_000): Promise<string> {
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => {

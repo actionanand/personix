@@ -122,7 +122,10 @@ After the Android project exists, `npm run android:sync` rebuilds Angular, synch
 ## Storage and native integrations
 
 - Android stores module-specific tables in the local SQLite `personix` database; the browser build uses IndexedDB.
-- Capacitor Filesystem handles encrypted backup files, and Camera supports optional user-selected attachments.
+- Encrypted backups use Android's Storage Access Framework. The native Create Document picker lets
+  the user choose the destination, and success is reported only after Android writes the complete
+  `.pxbackup` file. No broad storage permission is required.
+- Camera supports optional user-selected attachments.
 - Android metadata fetching runs on-device only when enabled and synchronizes missing previews without asking users to enter OG fields.
 - Application PIN verification remains local. Android biometric secrets use the Android Keystore.
 - Android activity PiP and browser Document PiP are patched from the same content preview flow.
