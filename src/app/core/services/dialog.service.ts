@@ -8,9 +8,11 @@ export interface DialogRequest {
   readonly destructive: boolean;
   readonly icon: string;
   readonly checkboxLabel: string;
+  readonly requireCheckbox: boolean;
   readonly typedConfirmation: string;
   readonly promptLabel: string;
   readonly promptType: 'text' | 'password';
+  readonly promptValue: string;
 }
 
 export interface DialogResult {
@@ -39,9 +41,11 @@ export class DialogService {
         destructive: request.destructive ?? false,
         icon: request.icon ?? 'circle-help',
         checkboxLabel: request.checkboxLabel ?? '',
+        requireCheckbox: request.requireCheckbox ?? false,
         typedConfirmation: request.typedConfirmation ?? '',
         promptLabel: request.promptLabel ?? '',
         promptType: request.promptType ?? 'text',
+        promptValue: request.promptValue ?? '',
         resolve,
       }),
     );

@@ -48,6 +48,7 @@ export interface SelectPickerOption {
         ></button>
         <section
           class="picker-sheet"
+          [class.many-options]="options().length > 8"
           role="dialog"
           aria-modal="true"
           [attr.aria-label]="sheetTitle()"

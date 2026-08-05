@@ -1,7 +1,15 @@
 .page-heading {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  margin-bottom: 0.45rem;
+}
+.page-heading > .button {
+  min-height: 2.9rem;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 0.65rem 1rem;
 }
 .eyebrow {
   margin: 0;
@@ -72,6 +80,22 @@
   color: var(--primary);
   background: var(--primary-soft);
 }
+.member-leading {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+}
+.member-blood-group {
+  min-width: 2.35rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid color-mix(in srgb, #b23a55 32%, transparent);
+  border-radius: 2rem;
+  color: var(--text);
+  background: color-mix(in srgb, #b23a55 17%, var(--surface));
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: center;
+}
 .record h2 {
   display: flex;
   gap: 0.4rem;
@@ -86,6 +110,15 @@
   margin: 0.3rem 0;
   color: var(--muted);
   font-size: 0.84rem;
+}
+.member-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.25rem;
+  align-items: baseline;
+}
+.birth-detail {
+  white-space: nowrap;
 }
 .details {
   display: flex;
@@ -105,8 +138,152 @@
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
+.member-details span {
+  border: 1px solid transparent;
+  color: var(--text);
+}
+.member-details .detail-rasi {
+  border-color: color-mix(in srgb, #2878b5 25%, transparent);
+  background: color-mix(in srgb, #2878b5 16%, var(--surface));
+  white-space: nowrap;
+}
+.member-details .detail-nakshatra {
+  border-color: color-mix(in srgb, #8056ad 25%, transparent);
+  background: color-mix(in srgb, #8056ad 16%, var(--surface));
+}
+.member-details .detail-gothram {
+  border-color: color-mix(in srgb, #b16c1f 25%, transparent);
+  background: color-mix(in srgb, #b16c1f 16%, var(--surface));
+}
 .record-actions {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: end;
+}
+.record-actions .icon-button {
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+}
+.record-actions .danger-text {
+  grid-column: 2;
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  background: var(--danger-soft);
+}
+.record-actions .icon-button:hover {
+  border-color: currentColor;
+}
+.member-dialog-backdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 13, 8, 0.62);
+  backdrop-filter: blur(2px);
+}
+.member-dialog {
+  position: fixed;
+  z-index: 121;
+  display: grid;
+  inset: 1rem;
+  width: min(calc(100% - 2rem), 38rem);
+  height: fit-content;
+  max-height: calc(100dvh - 2rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.35rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.member-dialog > header {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(
+      circle at 0 0,
+      color-mix(in srgb, var(--primary-soft) 80%, transparent),
+      transparent 65%
+    ),
+    var(--surface);
+}
+.member-dialog-heading {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  min-width: 0;
+}
+.member-dialog-heading h2 {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0.1rem 0 0;
+}
+.member-dialog-heading h2 app-icon {
+  color: #d99a16;
+}
+.member-dialog-heading p:not(.eyebrow) {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+.member-information {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  background: var(--surface-muted);
+}
+.member-information > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--surface);
+}
+.member-information dt {
+  margin-bottom: 0.28rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.member-information dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.member-information .member-notes {
+  grid-column: 1 / -1;
+}
+.member-detail-link {
+  padding: 0;
+  border: 0;
+  color: var(--primary);
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.member-dialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 .blood-badge {
   display: grid;
@@ -171,11 +348,17 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
 }
-.editor label {
+.editor label,
+.editor .form-field {
   display: grid;
   gap: 0.35rem;
   font-size: 0.8rem;
   font-weight: 700;
+}
+.editor .form-field > small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 .wide {
   grid-column: 1/-1;
@@ -193,6 +376,7 @@
 @media (max-width: 38rem) {
   .page-heading {
     display: grid;
+    margin-bottom: 0.8rem;
   }
   .page-heading .button {
     width: 100%;
@@ -208,5 +392,14 @@
   }
   .wide {
     grid-column: 1;
+  }
+  .member-information {
+    grid-template-columns: 1fr;
+  }
+  .member-information .member-notes {
+    grid-column: 1;
+  }
+  .member-dialog > footer .button {
+    flex: 1;
   }
 }

@@ -30,8 +30,13 @@
   @switch (activeTab()) {
     @case ('members') {
       @for (member of members(); track member.id) {
-        <article class="record card">
-          <div class="record-icon"><app-icon name="family" /></div>
+        <article class="record member-record card">
+          <div class="member-leading">
+            @if (member.bloodGroup) {
+              <span class="member-blood-group">{{ member.bloodGroup }}</span>
+            }
+            <div class="record-icon"><app-icon name="family" /></div>
+          </div>
           <div>
             <h2>
               {{ member.name }}
@@ -39,35 +44,57 @@
                 <app-icon name="star" />
               }
             </h2>
-            <p>
-              {{ member.relationship }}
+            <p class="member-summary">
+              <span>{{ member.relationship }}</span>
               @if (member.dateOfBirth) {
-                · Born {{ member.dateOfBirth }}
+                @let memberAge = age(member.dateOfBirth);
+                <span class="birth-detail">
+                  · Born {{ member.dateOfBirth | date: 'MMM-dd-yyyy' : 'UTC' }}
+                  @if (memberAge !== null) {
+                    ({{ memberAge }} years)
+                  }
+                </span>
               }
             </p>
-            <div class="details">
-              @if (member.bloodGroup) {
-                <span>{{ member.bloodGroup }}</span>
-              }
+            <div class="details member-details">
               @if (rasiName(member.rasiId)) {
-                <span>{{ rasiName(member.rasiId) }}</span>
+                <span class="detail-rasi">{{ rasiName(member.rasiId) }}</span>
               }
               @if (nakshatraName(member.nakshatraId)) {
-                <span>{{ nakshatraName(member.nakshatraId) }}</span>
+                <span class="detail-nakshatra">{{ nakshatraName(member.nakshatraId) }}</span>
               }
               @if (member.gothram) {
-                <span>Gothram: {{ member.gothram }}</span>
+                <span class="detail-gothram">Gothram: {{ member.gothram }}</span>
               }
             </div>
           </div>
-          <button
-            type="button"
-            class="icon-button danger-text"
-            aria-label="Delete family member"
-            (click)="remove('family_members', member.id, member.name)"
-          >
-            <app-icon name="trash" />
-          </button>
+          <div class="record-actions member-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="View details for {{ member.name }}"
+              title="View details"
+              (click)="viewMember(member)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit family member"
+              (click)="editMember(member)"
+            >
+              <app-icon name="edit" />
+            </button>
+            <button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete family member"
+              (click)="remove('family_members', member.id, member.name)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
         </article>
       } @empty {
         <div class="empty-state card">
@@ -94,6 +121,23 @@
             </div>
           </div>
           <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="View details for {{ record.hospitalName }}"
+              title="View details"
+              (click)="viewHospital(record)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit hospital record"
+              (click)="editHospital(record)"
+            >
+              <app-icon name="edit" />
+            </button>
             @if (record.opNumber) {
               <button
                 type="button"
@@ -145,14 +189,33 @@
               }
             </div>
           </div>
-          <button
-            type="button"
-            class="icon-button danger-text"
-            aria-label="Delete insurance record"
-            (click)="remove('medical_insurance', record.id, record.providerName)"
-          >
-            <app-icon name="trash" />
-          </button>
+          <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="View details for {{ record.providerName }}"
+              title="View details"
+              (click)="viewInsurance(record)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit insurance record"
+              (click)="editInsurance(record)"
+            >
+              <app-icon name="edit" />
+            </button>
+            <button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete insurance record"
+              (click)="remove('medical_insurance', record.id, record.providerName)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
         </article>
       } @empty {
         <div class="empty-state card">
@@ -187,14 +250,33 @@
               }
             </div>
           </div>
-          <button
-            type="button"
-            class="icon-button danger-text"
-            aria-label="Delete important item"
-            (click)="remove('important_items', item.id, item.name)"
-          >
-            <app-icon name="trash" />
-          </button>
+          <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="View details for {{ item.name }}"
+              title="View details"
+              (click)="viewImportantItem(item)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit important item"
+              (click)="editImportantItem(item)"
+            >
+              <app-icon name="edit" />
+            </button>
+            <button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete important item"
+              (click)="remove('important_items', item.id, item.name)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
         </article>
       } @empty {
         <div class="empty-state card">
@@ -213,11 +295,28 @@
             <p>
               {{ bloodLabel(record) }}
               @if (record.lastVerifiedDate) {
-                · Verified {{ record.lastVerifiedDate }}
+                · Verified {{ record.lastVerifiedDate | date: 'MMM-dd-yyyy' : 'UTC' }}
               }
             </p>
           </div>
           <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="View details for {{ record.personName }}"
+              title="View details"
+              (click)="viewBloodGroup(record)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit blood group record"
+              (click)="editBloodGroup(record)"
+            >
+              <app-icon name="edit" />
+            </button>
             <button
               type="button"
               class="icon-button"
@@ -247,6 +346,362 @@
     }
   }
 </section>
+@if (viewingRecord()) {
+  <button
+    type="button"
+    class="member-dialog-backdrop"
+    aria-label="Close record details"
+    (click)="closeRecordDetails()"
+  ></button>
+  <section
+    class="member-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="record-dialog-title"
+  >
+    @if (viewingMember(); as member) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="family" /></div>
+          <div>
+            <p class="eyebrow">Family member</p>
+            <h2 id="record-dialog-title">
+              {{ member.name }}
+              @if (member.important) {
+                <app-icon name="star" />
+              }
+            </h2>
+            <p>{{ member.relationship }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Date of birth</dt>
+          <dd>
+            @if (member.dateOfBirth) {
+              @let memberAge = age(member.dateOfBirth);
+              {{ member.dateOfBirth | date: 'MMM-dd-yyyy' : 'UTC' }}
+              @if (memberAge !== null) {
+                ({{ memberAge }} years)
+              }
+            } @else {
+              Not recorded
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Gender</dt>
+          <dd>{{ member.gender || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Phone</dt>
+          <dd>
+            @if (member.phone) {
+              <button type="button" class="member-detail-link" (click)="call(member.phone)">
+                {{ member.phone }}
+              </button>
+            } @else {
+              Not recorded
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Blood group</dt>
+          <dd>{{ member.bloodGroup || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Rasi</dt>
+          <dd>{{ rasiName(member.rasiId) || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Nakshatra</dt>
+          <dd>{{ nakshatraName(member.nakshatraId) || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Gothram</dt>
+          <dd>{{ member.gothram || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ member.important ? 'Important' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ member.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editMember(member)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingHospital(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="hospital" /></div>
+          <div>
+            <p class="eyebrow">Hospital OP</p>
+            <h2 id="record-dialog-title">{{ record.hospitalName }}</h2>
+            <p>{{ record.patientName }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Branch</dt>
+          <dd>{{ record.branch || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Patient</dt>
+          <dd>{{ record.patientName }}</dd>
+        </div>
+        <div>
+          <dt>Family member</dt>
+          <dd>{{ memberName(record.familyMemberId) || 'Not linked' }}</dd>
+        </div>
+        <div>
+          <dt>OP number</dt>
+          <dd>{{ record.opNumber || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Department</dt>
+          <dd>{{ record.department || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Doctor</dt>
+          <dd>{{ record.doctorName || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Contacts</dt>
+          <dd>{{ record.contacts.join(', ') || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Last visit</dt>
+          <dd>{{ (record.lastVisitDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Website</dt>
+          <dd>{{ record.website || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ record.important ? 'Important' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editHospital(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingInsurance(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="insurance" /></div>
+          <div>
+            <p class="eyebrow">Medical insurance</p>
+            <h2 id="record-dialog-title">{{ record.providerName }}</h2>
+            <p>{{ record.policyName || 'Insurance policy' }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Policy name</dt>
+          <dd>{{ record.policyName || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Policy number</dt>
+          <dd>{{ record.policyNumber || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>TPA</dt>
+          <dd>{{ record.tpaName || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Contacts</dt>
+          <dd>{{ record.contacts.join(', ') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Email addresses</dt>
+          <dd>{{ record.emails.join(', ') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Covered family members</dt>
+          <dd>{{ memberNames(record.coveredFamilyMemberIds) }}</dd>
+        </div>
+        <div>
+          <dt>Start date</dt>
+          <dd>{{ (record.startDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Expiry date</dt>
+          <dd>{{ (record.expiryDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Website</dt>
+          <dd>{{ record.website || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ record.important ? 'Important' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editInsurance(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingItem(); as item) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon">
+            <app-icon [name]="item.itemType === 'medicine' ? 'medicine' : 'sparkle'" />
+          </div>
+          <div>
+            <p class="eyebrow">{{ item.itemType === 'medicine' ? 'Medicine' : 'Toiletry' }}</p>
+            <h2 id="record-dialog-title">{{ item.name }}</h2>
+            <p>Used for {{ item.usedFor }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div class="member-notes">
+          <dt>Used for</dt>
+          <dd>{{ item.usedFor }}</dd>
+        </div>
+        <div>
+          <dt>Family member</dt>
+          <dd>{{ memberName(item.familyMemberId) || 'Not linked' }}</dd>
+        </div>
+        <div>
+          <dt>Brand</dt>
+          <dd>{{ item.brand || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Form</dt>
+          <dd>{{ item.form || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Strength</dt>
+          <dd>{{ item.strength || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Doctor or hospital</dt>
+          <dd>{{ item.doctorOrHospital || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Usage instructions</dt>
+          <dd>{{ item.usageInstructions || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ item.favourite ? 'Favourite' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ item.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editImportantItem(item)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingBloodGroup(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="blood-badge">{{ bloodLabel(record) }}</div>
+          <div>
+            <p class="eyebrow">Blood group</p>
+            <h2 id="record-dialog-title">{{ record.personName }}</h2>
+            <p>{{ bloodLabel(record) }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Family member</dt>
+          <dd>{{ memberName(record.familyMemberId) || 'Not linked' }}</dd>
+        </div>
+        <div>
+          <dt>Blood group</dt>
+          <dd>{{ bloodLabel(record) }}</dd>
+        </div>
+        <div>
+          <dt>Last verified</dt>
+          <dd>{{ (record.lastVerifiedDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Source</dt>
+          <dd>{{ record.source || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editBloodGroup(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    }
+  </section>
+}
 @if (panelOpen()) {
   <button
     type="button"
@@ -256,7 +711,10 @@
   ></button>
   <section class="editor">
     <header>
-      <h2>Add {{ tabs.find((tab) => tab.id === activeTab())?.label }}</h2>
+      <h2>
+        {{ editingRecord() ? 'Edit' : 'Add' }}
+        {{ tabs.find((tab) => tab.id === activeTab())?.label }}
+      </h2>
       <button type="button" class="icon-button" aria-label="Close" (click)="close()">
         <app-icon name="close" />
       </button>
@@ -268,7 +726,31 @@
           ><label>Relationship *<input formControlName="relationship" /></label
           ><label>Date of birth<input type="date" formControlName="dateOfBirth" /></label
           ><label>Gender (optional)<input formControlName="gender" /></label
-          ><label>Phone<input type="tel" formControlName="phone" /></label
+          ><label
+            >Phone<input
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              pattern="[0-9+ -]*"
+              formControlName="phone"
+              [attr.aria-describedby]="
+                memberForm.controls.phone.touched && memberForm.controls.phone.invalid
+                  ? 'family-phone-error'
+                  : null
+              "
+              [attr.aria-invalid]="
+                memberForm.controls.phone.touched && memberForm.controls.phone.invalid
+              "
+              (input)="sanitizeContactInput($event, memberForm.controls.phone)"
+            />
+            @if (
+              memberForm.controls.phone.touched &&
+              memberForm.controls.phone.hasError('contactNumber')
+            ) {
+              <small id="family-phone-error" class="field-error" role="alert">
+                Use only digits, spaces, + and -.
+              </small>
+            }</label
           ><label
             >Blood group<app-select-picker
               formControlName="bloodGroup"
@@ -298,7 +780,9 @@
             ><input type="checkbox" formControlName="important" /> Important</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save family member</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update family member' : 'Save family member' }}
+            </button>
           </div>
         </form>
       }
@@ -308,8 +792,28 @@
           ><label>Branch<input formControlName="branch" /></label
           ><label
             >Contact numbers *<input
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              pattern="[0-9+, -]*"
               formControlName="contacts"
-              placeholder="Comma separated" /></label
+              placeholder="Comma separated"
+              [attr.aria-describedby]="
+                hospitalForm.controls.contacts.touched && hospitalForm.controls.contacts.invalid
+                  ? 'hospital-contacts-help hospital-contacts-error'
+                  : 'hospital-contacts-help'
+              "
+              [attr.aria-invalid]="
+                hospitalForm.controls.contacts.touched && hospitalForm.controls.contacts.invalid
+              "
+              (input)="sanitizeContactInput($event, hospitalForm.controls.contacts, true)"
+            />
+            <small id="hospital-contacts-help">Separate multiple numbers with commas.</small>
+            @if (hospitalForm.controls.contacts.touched && hospitalForm.controls.contacts.invalid) {
+              <small id="hospital-contacts-error" class="field-error" role="alert">
+                Enter at least one number using only digits, spaces, + and -.
+              </small>
+            }</label
           ><label>Patient name *<input formControlName="patientName" /></label
           ><label
             >Link family member<app-select-picker
@@ -326,7 +830,9 @@
             ><input type="checkbox" formControlName="important" /> Important</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save OP record</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update OP record' : 'Save OP record' }}
+            </button>
           </div>
         </form>
       }
@@ -335,14 +841,62 @@
           <label>Provider name *<input formControlName="providerName" /></label
           ><label>Policy name<input formControlName="policyName" /></label
           ><label>Policy number<input formControlName="policyNumber" /></label
-          ><label>TPA name (optional)<input formControlName="tpaName" /></label
-          ><label
-            >Contact numbers<input
+          ><label>TPA name (optional)<input formControlName="tpaName" /></label>
+          <div class="form-field">
+            <span>Contact numbers</span>
+            <app-token-input
               formControlName="contacts"
-              placeholder="Comma separated" /></label
-          ><label
-            >Email addresses<input formControlName="emails" placeholder="Comma separated" /></label
-          ><label>Website<input type="url" formControlName="website" /></label
+              ariaLabel="Insurance contact numbers"
+              inputMode="tel"
+              contactCharactersOnly
+              [ariaDescribedBy]="
+                insuranceForm.controls.contacts.touched && insuranceForm.controls.contacts.invalid
+                  ? 'insurance-contact-help insurance-contact-error'
+                  : 'insurance-contact-help'
+              "
+              [invalid]="
+                insuranceForm.controls.contacts.touched && insuranceForm.controls.contacts.invalid
+              "
+              placeholder="Type a number, then comma"
+            />
+            <small id="insurance-contact-help"> Press comma or Enter to add each number. </small>
+            @if (
+              insuranceForm.controls.contacts.touched &&
+              insuranceForm.controls.contacts.hasError('invalidContacts')
+            ) {
+              <small id="insurance-contact-error" class="field-error" role="alert">
+                Use only digits, spaces, + and - in every contact pill.
+              </small>
+            }
+          </div>
+          <div class="form-field">
+            <span>Email addresses</span>
+            <app-token-input
+              formControlName="emails"
+              ariaLabel="Insurance email addresses"
+              inputMode="email"
+              tokenType="email"
+              [ariaDescribedBy]="
+                insuranceForm.controls.emails.touched && insuranceForm.controls.emails.invalid
+                  ? 'insurance-email-help insurance-email-error'
+                  : 'insurance-email-help'
+              "
+              [invalid]="
+                insuranceForm.controls.emails.touched && insuranceForm.controls.emails.invalid
+              "
+              placeholder="Type an email, then comma"
+            />
+            <small id="insurance-email-help">Press comma or Enter to add each email.</small>
+            @if (
+              insuranceForm.controls.emails.touched &&
+              insuranceForm.controls.emails.hasError('invalidEmails')
+            ) {
+              <small id="insurance-email-error" class="field-error" role="alert">
+                Enter a valid email address for every email pill.
+              </small>
+            }
+          </div>
+          <label>Website<input type="url" formControlName="website" /></label
           ><label>Start date<input type="date" formControlName="startDate" /></label
           ><label>Expiry date<input type="date" formControlName="expiryDate" /></label
           ><label class="wide">Notes<textarea formControlName="notes"></textarea></label
@@ -350,7 +904,9 @@
             ><input type="checkbox" formControlName="important" /> Important</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save insurance</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update insurance' : 'Save insurance' }}
+            </button>
           </div>
         </form>
       }
@@ -379,7 +935,9 @@
             ><input type="checkbox" formControlName="favourite" /> Favourite</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save reference</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update reference' : 'Save reference' }}
+            </button>
           </div>
         </form>
       }
@@ -404,7 +962,9 @@
           ><label>Source of information<input formControlName="source" /></label
           ><label class="wide">Notes<textarea formControlName="notes"></textarea></label>
           <div class="form-actions wide">
-            <button class="button" type="submit">Save blood group</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update blood group' : 'Save blood group' }}
+            </button>
           </div>
         </form>
       }

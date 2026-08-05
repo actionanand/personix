@@ -62,7 +62,10 @@ import { AppIcon } from './app-icon';
             type="button"
             class="button"
             [class.danger]="dialog.destructive"
-            [disabled]="dialog.typedConfirmation && value() !== dialog.typedConfirmation"
+            [disabled]="
+              (dialog.typedConfirmation && value() !== dialog.typedConfirmation) ||
+              (dialog.requireCheckbox && !checked())
+            "
             (click)="confirm()"
           >
             {{ dialog.confirmText }}
@@ -81,8 +84,9 @@ export class AppDialog {
 
   constructor() {
     effect(() => {
-      if (!this.dialogs.active()) return;
-      this.value.set('');
+      const dialog = this.dialogs.active();
+      if (!dialog) return;
+      this.value.set(dialog.promptValue);
       this.checked.set(false);
       window.setTimeout(() => this.input()?.nativeElement.focus(), 0);
     });

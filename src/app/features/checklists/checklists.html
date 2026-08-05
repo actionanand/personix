@@ -96,15 +96,25 @@
               @if (item.completed) {
                 <app-icon name="check" />
               }</button
-            ><span>{{ item.text }}</span
-            ><button
-              type="button"
-              class="icon-button danger-text"
-              aria-label="Delete item"
-              (click)="removeItem(item)"
-            >
-              <app-icon name="trash" />
-            </button>
+            ><span>{{ item.text }}</span>
+            <div class="item-actions">
+              <button
+                type="button"
+                class="icon-button"
+                aria-label="Edit item"
+                (click)="editItem(item)"
+              >
+                <app-icon name="edit" />
+              </button>
+              <button
+                type="button"
+                class="icon-button danger-text"
+                aria-label="Delete item"
+                (click)="removeItem(item)"
+              >
+                <app-icon name="trash" />
+              </button>
+            </div>
           </article>
         } @empty {
           <div class="empty-state">

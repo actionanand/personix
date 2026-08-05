@@ -30,7 +30,8 @@ export class ContentRepository {
     showAdult: boolean,
     limit = 30,
     cursor: PageCursor | null = null,
-  ): Promise<Page<SavedContent>> {
+    offset = 0,
+  ): Promise<Page<SavedContent> & { readonly total: number }> {
     const [items, categories, tags, recipients] = await Promise.all([
       this.database.getAll('saved_content'),
       this.database.getAll('content_categories'),
@@ -43,12 +44,13 @@ export class ContentRepository {
     const terms = normalizeText(filters.query).split(/\s+/).filter(Boolean);
     const matches = items
       .filter((item) => showAdult || !item.adult)
+      .filter((item) => !showAdult || !filters.excludeAdult || !item.adult)
       .filter((item) =>
         filters.section === 'videos'
           ? isVideoContentType(item.contentType)
           : !isVideoContentType(item.contentType),
       )
-      .filter((item) => !filters.adultOnly || item.adult)
+      .filter((item) => !showAdult || !filters.adultOnly || item.adult)
       .filter((item) => !filters.contentType || item.contentType === filters.contentType)
       .filter((item) => !filters.platform || item.platform === filters.platform)
       .filter((item) => !filters.categoryId || item.categoryId === filters.categoryId)
@@ -88,12 +90,16 @@ export class ContentRepository {
             (item.createdAt === cursor.createdAt && item.id < cursor.id),
         )
       : matches;
-    const pageItems = afterCursor.slice(0, limit);
+    const safeOffset = Math.max(0, offset);
+    const pageItems = afterCursor.slice(safeOffset, safeOffset + limit);
     const last = pageItems.at(-1);
     return {
       items: pageItems,
       nextCursor:
-        pageItems.length === limit && last ? { createdAt: last.createdAt, id: last.id } : null,
+        safeOffset + pageItems.length < afterCursor.length && last
+          ? { createdAt: last.createdAt, id: last.id }
+          : null,
+      total: afterCursor.length,
     };
   }
 

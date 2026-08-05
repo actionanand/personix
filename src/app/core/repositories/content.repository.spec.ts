@@ -77,6 +77,7 @@ const filters: ContentFilters = {
   favouriteOnly: false,
   consumed: 'all',
   adultOnly: false,
+  excludeAdult: false,
   dateFrom: '',
   dateTo: '',
   sort: 'recent',
@@ -124,6 +125,21 @@ describe('ContentRepository', () => {
     expect((await repository.list(filters, true)).items).toHaveLength(2);
   });
 
+  it('supports excluding adult records or showing only adult records after enablement', async () => {
+    await repository.save(draft('safe', false));
+    await repository.save(draft('adult', true));
+    expect(
+      (await repository.list({ ...filters, excludeAdult: true }, true)).items.map(
+        (item) => item.title,
+      ),
+    ).toEqual(['safe']);
+    expect(
+      (await repository.list({ ...filters, adultOnly: true }, true)).items.map(
+        (item) => item.title,
+      ),
+    ).toEqual(['adult']);
+  });
+
   it('uses a stable timestamp and ID cursor', async () => {
     for (let index = 0; index < 35; index++) await repository.save(draft(`item-${index}`, false));
     const first = await repository.list(filters, false, 30);
@@ -131,6 +147,14 @@ describe('ContentRepository', () => {
     expect(first.items).toHaveLength(30);
     expect(second.items).toHaveLength(5);
     expect(new Set([...first.items, ...second.items].map((item) => item.id)).size).toBe(35);
+  });
+
+  it('supports numbered pagination with a total count', async () => {
+    for (let index = 0; index < 7; index++)
+      await repository.save(draft(`numbered-${index}`, false));
+    const page = await repository.list(filters, false, 3, null, 3);
+    expect(page.items).toHaveLength(3);
+    expect(page.total).toBe(7);
   });
 });
 

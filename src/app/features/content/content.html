@@ -102,68 +102,254 @@
       </button>
     </header>
     <div class="filter-panel">
-      <label
-        >Type<app-select-picker
+      <label class="picker-field"
+        ><span class="filter-label">Type</span
+        ><app-select-picker
+          compact
           [value]="filters().contentType"
           (valueChange)="updateFilter('contentType', $any($event))"
           [options]="contentTypeOptions()"
           sheetTitle="Filter by type"
       /></label>
-      <label
-        >Category<app-select-picker
-          [value]="filters().categoryId"
-          (valueChange)="updateFilter('categoryId', $event)"
-          [options]="categoryOptions()"
-          sheetTitle="Filter by category"
-      /></label>
-      <label
-        >Tag<app-select-picker
-          [value]="filters().tagId"
-          (valueChange)="updateFilter('tagId', $event)"
-          [options]="tagOptions()"
-          sheetTitle="Filter by tag"
-      /></label>
-      <label
-        >Recipient<app-select-picker
-          [value]="filters().recipientId"
-          (valueChange)="updateFilter('recipientId', $event)"
-          [options]="recipientOptions()"
-          sheetTitle="Filter by recipient"
-      /></label>
-      <label
-        >Share status<app-select-picker
-          [value]="filters().sent"
-          (valueChange)="updateFilter('sent', $any($event))"
-          [options]="sentOptions"
-          sheetTitle="Filter by share status"
-      /></label>
-      <label
-        >Read / watched<app-select-picker
-          [value]="filters().consumed"
-          (valueChange)="updateFilter('consumed', $any($event))"
-          [options]="consumedOptions"
-          sheetTitle="Filter by progress"
-      /></label>
-      <label
-        >Sort<app-select-picker
+      <label class="picker-field"
+        ><span class="filter-label">Sort</span
+        ><app-select-picker
+          compact
           [value]="filters().sort"
           (valueChange)="updateFilter('sort', $any($event))"
           [options]="sortOptions"
           sheetTitle="Sort content"
       /></label>
-      <label class="check"
+
+      <section class="filter-field wide-filter" aria-labelledby="tag-filter-label">
+        <span id="tag-filter-label" class="filter-label">Tags</span>
+        <div class="filter-pills scrollable-pills" role="group" aria-label="Filter by tag">
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="!filters().tagId"
+            [attr.aria-pressed]="!filters().tagId"
+            (click)="updateFilter('tagId', '')"
+          >
+            All tags
+          </button>
+          @for (tag of visibleFilterTags(); track tag.id) {
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="filters().tagId === tag.id"
+              [attr.aria-pressed]="filters().tagId === tag.id"
+              (click)="updateFilter('tagId', tag.id)"
+            >
+              #{{ tag.name }}
+            </button>
+          }
+          @if (hiddenFilterTagCount()) {
+            <button
+              type="button"
+              class="filter-pill more-filter-pill"
+              (click)="expandedFilter.set('tags')"
+            >
+              +{{ hiddenFilterTagCount() }} more
+            </button>
+          }
+        </div>
+      </section>
+
+      <section class="filter-field wide-filter" aria-labelledby="recipient-filter-label">
+        <span id="recipient-filter-label" class="filter-label">Recipient</span>
+        <div class="filter-pills scrollable-pills" role="group" aria-label="Filter by recipient">
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="!filters().recipientId"
+            [attr.aria-pressed]="!filters().recipientId"
+            (click)="updateFilter('recipientId', '')"
+          >
+            Anyone
+          </button>
+          @for (recipient of visibleFilterRecipients(); track recipient.id) {
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="filters().recipientId === recipient.id"
+              [attr.aria-pressed]="filters().recipientId === recipient.id"
+              (click)="updateFilter('recipientId', recipient.id)"
+            >
+              {{ recipient.name }}
+            </button>
+          }
+          @if (hiddenFilterRecipientCount()) {
+            <button
+              type="button"
+              class="filter-pill more-filter-pill"
+              (click)="expandedFilter.set('recipients')"
+            >
+              +{{ hiddenFilterRecipientCount() }} more
+            </button>
+          }
+        </div>
+      </section>
+
+      <section class="filter-field" aria-labelledby="share-filter-label">
+        <span id="share-filter-label" class="filter-label">Share status</span>
+        <div class="filter-pills" role="group" aria-label="Filter by share status">
+          @for (option of sentOptions; track option.value) {
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="filters().sent === option.value"
+              [attr.aria-pressed]="filters().sent === option.value"
+              (click)="updateFilter('sent', $any(option.value))"
+            >
+              {{ option.label }}
+            </button>
+          }
+        </div>
+      </section>
+
+      <section class="filter-field" aria-labelledby="progress-filter-label">
+        <span id="progress-filter-label" class="filter-label">Read / watched</span>
+        <div class="filter-pills" role="group" aria-label="Filter by progress">
+          @for (option of consumedOptions; track option.value) {
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="filters().consumed === option.value"
+              [attr.aria-pressed]="filters().consumed === option.value"
+              (click)="updateFilter('consumed', $any(option.value))"
+            >
+              {{ option.label }}
+            </button>
+          }
+        </div>
+      </section>
+
+      @if (store.settings().showAdultContent) {
+        <section class="filter-field wide-filter adult-filter" aria-labelledby="adult-filter-label">
+          <span id="adult-filter-label" class="filter-label">Adult content</span>
+          <div class="filter-pills" role="group" aria-label="Filter adult content">
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="adultFilterMode() === 'all'"
+              [attr.aria-pressed]="adultFilterMode() === 'all'"
+              (click)="setAdultFilter('all')"
+            >
+              Show all
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="adultFilterMode() === 'exclude'"
+              [attr.aria-pressed]="adultFilterMode() === 'exclude'"
+              (click)="setAdultFilter('exclude')"
+            >
+              Filter out adult content
+            </button>
+            <button
+              type="button"
+              class="filter-pill"
+              [class.active]="adultFilterMode() === 'only'"
+              [attr.aria-pressed]="adultFilterMode() === 'only'"
+              (click)="setAdultFilter('only')"
+            >
+              Show adult content only
+            </button>
+          </div>
+        </section>
+      }
+
+      <label class="favourite-filter"
         ><input
           type="checkbox"
           [checked]="filters().favouriteOnly"
           (change)="updateFilter('favouriteOnly', $any($event.target).checked)"
         />
-        Favourites only</label
+        <span><app-icon name="star" /> Favourites only</span></label
       >
     </div>
     <footer>
       <button type="button" class="button ghost" (click)="resetFilters()">Reset filters</button>
       <button type="button" class="button" (click)="filterOpen.set(false)">Show results</button>
     </footer>
+  </section>
+}
+
+@if (expandedFilter() !== 'none') {
+  <button
+    type="button"
+    class="filter-choice-backdrop"
+    aria-label="Close all filter choices"
+    (click)="expandedFilter.set('none')"
+  ></button>
+  <section
+    class="filter-choice-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="filter-choice-title"
+  >
+    <header>
+      <div>
+        <p class="eyebrow">Filter content</p>
+        <h2 id="filter-choice-title">
+          {{ expandedFilter() === 'tags' ? 'All tags' : 'All recipients' }}
+        </h2>
+      </div>
+      <button
+        type="button"
+        class="icon-button"
+        aria-label="Close all filter choices"
+        (click)="expandedFilter.set('none')"
+      >
+        <app-icon name="close" />
+      </button>
+    </header>
+    <div class="filter-choice-list">
+      @if (expandedFilter() === 'tags') {
+        <button
+          type="button"
+          class="filter-pill"
+          [class.active]="!filters().tagId"
+          [attr.aria-pressed]="!filters().tagId"
+          (click)="updateFilter('tagId', ''); expandedFilter.set('none')"
+        >
+          All tags
+        </button>
+        @for (tag of tags(); track tag.id) {
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="filters().tagId === tag.id"
+            [attr.aria-pressed]="filters().tagId === tag.id"
+            (click)="updateFilter('tagId', tag.id); expandedFilter.set('none')"
+          >
+            #{{ tag.name }}
+          </button>
+        }
+      } @else {
+        <button
+          type="button"
+          class="filter-pill"
+          [class.active]="!filters().recipientId"
+          [attr.aria-pressed]="!filters().recipientId"
+          (click)="updateFilter('recipientId', ''); expandedFilter.set('none')"
+        >
+          Anyone
+        </button>
+        @for (recipient of recipients(); track recipient.id) {
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="filters().recipientId === recipient.id"
+            [attr.aria-pressed]="filters().recipientId === recipient.id"
+            (click)="updateFilter('recipientId', recipient.id); expandedFilter.set('none')"
+          >
+            {{ recipient.name }}
+          </button>
+        }
+      }
+    </div>
   </section>
 }
 
@@ -216,6 +402,22 @@
           }
           <div class="card-actions">
             <button type="button" class="button" (click)="open(item)">Open</button
+            ><button
+              type="button"
+              class="icon-button"
+              aria-label="Share original URL"
+              title="Share original URL"
+              (click)="shareOriginalUrl(item)"
+            >
+              <app-icon name="share" /></button
+            ><button
+              type="button"
+              class="icon-button"
+              aria-label="Copy original URL"
+              title="Copy original URL"
+              (click)="copyOriginalUrl(item)"
+            >
+              <app-icon name="copy" /></button
             ><button type="button" class="icon-button" aria-label="Edit" (click)="edit(item)">
               <app-icon name="edit" /></button
             ><button
@@ -238,12 +440,65 @@
       </article>
     }
   </section>
-  @if (nextCursor()) {
-    <div class="load-more">
-      <button type="button" class="button secondary" [disabled]="loading()" (click)="loadMore()">
-        {{ loading() ? 'Loading…' : 'Load more' }}
-      </button>
-    </div>
+  @if (totalPages() > 1) {
+    <nav class="pagination" aria-label="Saved content pages">
+      <p>Page {{ currentPage() }} of {{ totalPages() }} · {{ totalItems() }} items</p>
+      <div class="pagination-buttons">
+        <button
+          type="button"
+          class="page-button page-control first-page"
+          [attr.aria-label]="'First ' + paginationItemLabel() + ' page'"
+          [disabled]="loading() || currentPage() === 1"
+          (click)="goToPage(1)"
+        >
+          <app-icon name="chevrons-left" />
+        </button>
+        <button
+          type="button"
+          class="page-button page-control previous-page"
+          aria-label="Previous page"
+          [disabled]="loading() || currentPage() === 1"
+          (click)="goToPage(currentPage() - 1)"
+        >
+          <app-icon name="chevron-left" />
+        </button>
+        @for (token of paginationTokens(); track token.key) {
+          @if (token.page; as page) {
+            <button
+              type="button"
+              class="page-button"
+              [class.active]="page === currentPage()"
+              [attr.aria-current]="page === currentPage() ? 'page' : null"
+              [attr.aria-label]="'Page ' + page"
+              [disabled]="loading()"
+              (click)="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          } @else {
+            <span class="page-ellipsis" aria-hidden="true">…</span>
+          }
+        }
+        <button
+          type="button"
+          class="page-button page-control next-page"
+          aria-label="Next page"
+          [disabled]="loading() || currentPage() === totalPages()"
+          (click)="goToPage(currentPage() + 1)"
+        >
+          <app-icon name="chevron-right" />
+        </button>
+        <button
+          type="button"
+          class="page-button page-control last-page"
+          [attr.aria-label]="'Last ' + paginationItemLabel() + ' page'"
+          [disabled]="loading() || currentPage() === totalPages()"
+          (click)="goToPage(totalPages())"
+        >
+          <app-icon name="chevrons-right" />
+        </button>
+      </div>
+    </nav>
   }
 }
 
@@ -295,31 +550,26 @@
           placeholder="What is this about?"
         ></textarea>
       </label>
-      <label
-        >Category<input
-          formControlName="category"
-          list="content-category-options"
-          placeholder="Optional" /><datalist id="content-category-options">
-          @for (category of categories(); track category.id) {
-            <option [value]="category.name"></option>
-          }</datalist
-      ></label>
-      <label
-        >Tags<input formControlName="tags" placeholder="recipes, weekend" /><small
-          >Separate multiple tags with commas</small
-        ></label
-      >
-      <label class="wide"
-        >Who should receive this?<input
+      <div class="field wide">
+        <span class="field-label">Tags</span>
+        <app-token-input
+          formControlName="tags"
+          ariaLabel="Tags"
+          placeholder="Type a tag and press comma"
+          [suggestions]="tagSuggestions()"
+        />
+        <small>Press comma or Enter to add a tag.</small>
+      </div>
+      <div class="field wide">
+        <span class="field-label">Who should receive this?</span>
+        <app-token-input
           formControlName="recipients"
-          list="content-recipient-options"
-          placeholder="Wife, Brother, Office Team"
-        /><datalist id="content-recipient-options">
-          @for (recipient of recipients(); track recipient.id) {
-            <option [value]="recipient.name"></option>
-          }</datalist
-        ><small>Optional. Separate multiple recipients with commas.</small></label
-      >
+          ariaLabel="Who should receive this?"
+          placeholder="Type a name and press comma"
+          [suggestions]="recipientSuggestions()"
+        />
+        <small>Optional. Press comma or Enter to add a recipient.</small>
+      </div>
       <label class="wide"
         >Notes<textarea
           formControlName="notes"

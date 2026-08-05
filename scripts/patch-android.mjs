@@ -16,6 +16,11 @@ const exists = async (path) => {
   }
 };
 const javaPath = resolve('android/app/src/main/java', ...appId.split('.'), 'MainActivity.java');
+const postActivityPath = resolve(
+  'android/app/src/main/java',
+  ...appId.split('.'),
+  'PersonixPostActivity.java',
+);
 const manifestPath = resolve('android/app/src/main/AndroidManifest.xml');
 const gradlePath = resolve('android/app/build.gradle');
 const proguardPath = resolve('android/app/proguard-rules.pro');
@@ -56,6 +61,15 @@ manifest = manifest.replace(
     return patched;
   },
 );
+if (!manifest.includes('android:name=".PersonixPostActivity"'))
+  manifest = manifest.replace(
+    '</application>',
+    `        <activity
+            android:name=".PersonixPostActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.NoActionBar" />
+    </application>`,
+  );
 await writeFile(manifestPath, manifest, 'utf8');
 
 let gradle = await readFile(gradlePath, 'utf8');
@@ -145,8 +159,10 @@ await writeTheme(resolve(resPath, 'values-night/styles.xml'), true);
 const java = `package ${appId};
 
 import android.app.PictureInPictureParams;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -205,6 +221,7 @@ public class MainActivity extends BridgeActivity {
     getBridge().getWebView().addJavascriptInterface(new BiometricBridge(), "PersonixBiometric");
     getBridge().getWebView().addJavascriptInterface(new MetadataBridge(), "PersonixMetadata");
     getBridge().getWebView().addJavascriptInterface(new PipBridge(), "PersonixPip");
+    getBridge().getWebView().addJavascriptInterface(new BrowserBridge(), "PersonixBrowser");
     getBridge().getWebView().setBackgroundColor(Color.parseColor(darkMode ? "#07140F" : "#F3F8F5"));
     applyLaunchBars();
   }
@@ -219,6 +236,16 @@ public class MainActivity extends BridgeActivity {
   public class PipBridge {
     @JavascriptInterface public boolean isSupported() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O; }
     @JavascriptInterface public void enter(int width, int height) { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return; runOnUiThread(() -> { PictureInPictureParams params = new PictureInPictureParams.Builder().setAspectRatio(new Rational(Math.max(1, width), Math.max(1, height))).build(); enterPictureInPictureMode(params); }); }
+  }
+
+  public class BrowserBridge {
+    @JavascriptInterface public void openInApp(String rawUrl, String title) { runOnUiThread(() -> {
+      try {
+        Uri uri = requireWebUri(rawUrl); Intent intent = new Intent(MainActivity.this, PersonixPostActivity.class);
+        intent.putExtra(PersonixPostActivity.EXTRA_URL, uri.toString()); intent.putExtra(PersonixPostActivity.EXTRA_TITLE, title == null ? "" : title); startActivity(intent);
+      } catch (Exception ignored) { openWebUri(rawUrl); }
+    }); }
+    @JavascriptInterface public void openExternal(String rawUrl) { runOnUiThread(() -> openWebUri(rawUrl)); }
   }
 
   public class BiometricBridge {
@@ -256,13 +283,12 @@ public class MainActivity extends BridgeActivity {
           URL url = new URL(rawUrl); String protocol = url.getProtocol();
           if (!"https".equals(protocol) && !"http".equals(protocol)) throw new IllegalArgumentException("Only HTTP and HTTPS URLs are supported.");
           connection = (HttpURLConnection) url.openConnection(); connection.setConnectTimeout(Math.max(1000, timeoutMs)); connection.setReadTimeout(Math.max(1000, timeoutMs));
-          connection.setInstanceFollowRedirects(true); connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) Personix/1.0"); connection.setRequestProperty("Accept", "text/html,application/xhtml+xml");
+          connection.setInstanceFollowRedirects(true); connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept", "text/html,application/xhtml+xml"); connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9"); connection.setRequestProperty("Accept-Encoding", "identity");
           int status = connection.getResponseCode(); if (status < 200 || status >= 400) throw new IllegalStateException("Website returned " + status + ".");
           String contentType = connection.getContentType(); if (contentType != null && !contentType.toLowerCase().contains("text/html")) throw new IllegalStateException("The URL did not return an HTML page.");
-          int maxHtml = 1024 * 1024; int length = connection.getContentLength(); if (length > maxHtml) throw new IllegalStateException("The page is too large to inspect safely.");
-          byte[] bytes = readLimited(connection.getInputStream(), maxHtml); String html = new String(bytes, StandardCharsets.UTF_8);
-          JSONObject result = new JSONObject(); result.put("title", first(meta(html, "og:title"), title(html))); result.put("description", meta(html, "og:description"));
-          URL resolvedUrl = connection.getURL(); result.put("image", resolveUrl(resolvedUrl, meta(html, "og:image"))); result.put("siteName", meta(html, "og:site_name")); result.put("url", resolvedUrl.toString());
+          int maxHtml = 1024 * 1024; byte[] bytes = readLimited(connection.getInputStream(), maxHtml); String html = new String(bytes, StandardCharsets.UTF_8);
+          JSONObject result = new JSONObject(); result.put("title", first(meta(html, "og:title"), first(meta(html, "twitter:title"), title(html)))); result.put("description", first(meta(html, "og:description"), first(meta(html, "twitter:description"), meta(html, "description"))));
+          URL resolvedUrl = connection.getURL(); result.put("image", resolveUrl(resolvedUrl, first(meta(html, "og:image"), meta(html, "twitter:image")))); result.put("siteName", meta(html, "og:site_name")); result.put("url", resolvedUrl.toString());
           result.put("logo", resolveUrl(url, icon(html))); result.put("maxImageBytes", maxImageBytes);
           dispatch("metadata-fetch", true, result.toString(), "");
         } catch (Exception error) { dispatch("metadata-fetch", false, "", message(error)); }
@@ -272,7 +298,7 @@ public class MainActivity extends BridgeActivity {
   }
 
   private byte[] readLimited(InputStream input, int maximum) throws Exception {
-    try (InputStream source = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) { byte[] buffer = new byte[8192]; int count; int total = 0; while ((count = source.read(buffer)) != -1) { total += count; if (total > maximum) throw new IllegalStateException("The page is too large to inspect safely."); output.write(buffer, 0, count); } return output.toByteArray(); }
+    try (InputStream source = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) { byte[] buffer = new byte[8192]; int count; int total = 0; while ((count = source.read(buffer)) != -1 && total < maximum) { int allowed = Math.min(count, maximum - total); output.write(buffer, 0, allowed); total += allowed; } return output.toByteArray(); }
   }
   private String meta(String html, String property) { String quoted = Pattern.quote(property); String[] expressions = { "<meta[^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"'][^>]+content=[\\\"']([^\\\"']*)[\\\"']", "<meta[^>]+content=[\\\"']([^\\\"']*)[\\\"'][^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"']" }; for (String expression : expressions) { Matcher match = Pattern.compile(expression, Pattern.CASE_INSENSITIVE).matcher(html); if (match.find()) return decode(match.group(1)); } return ""; }
   private String title(String html) { Matcher match = Pattern.compile("<title[^>]*>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
@@ -280,6 +306,8 @@ public class MainActivity extends BridgeActivity {
   private String decode(String value) { return value.replace("&amp;", "&").replace("&quot;", "\\\"").replace("&#39;", "'").replaceAll("\\\\s+", " ").trim(); }
   private String resolveUrl(URL base, String value) { if (value == null || value.isEmpty()) return ""; try { return new URL(base, value).toString(); } catch (Exception ignored) { return ""; } }
   private String first(String left, String right) { return left == null || left.isEmpty() ? right : left; }
+  private Uri requireWebUri(String rawUrl) { Uri uri = Uri.parse(rawUrl); String scheme = uri.getScheme(); if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) throw new IllegalArgumentException("Only web URLs can be opened."); return uri; }
+  private void openWebUri(String rawUrl) { try { startActivity(new Intent(Intent.ACTION_VIEW, requireWebUri(rawUrl))); } catch (Exception ignored) { } }
 
   private SecretKey createBiometricKey() throws Exception {
     KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
@@ -316,6 +344,72 @@ public class MainActivity extends BridgeActivity {
 `;
 
 await writeFile(javaPath, java, 'utf8');
+const postActivityJava = `package ${appId};
+
+import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.net.Uri;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+public class PersonixPostActivity extends AppCompatActivity {
+  public static final String EXTRA_URL = "personix.url";
+  public static final String EXTRA_TITLE = "personix.title";
+  private WebView webView;
+  private String sourceUrl;
+
+  @Override protected void onCreate(Bundle state) {
+    super.onCreate(state);
+    sourceUrl = getIntent().getStringExtra(EXTRA_URL);
+    if (!isWebUrl(sourceUrl)) { finish(); return; }
+    boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    int background = Color.parseColor(dark ? "#07140F" : "#F3F8F5");
+    int foreground = Color.parseColor(dark ? "#F4FBF7" : "#0A2118");
+    getWindow().setStatusBarColor(background); getWindow().setNavigationBarColor(background);
+
+    LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(background);
+    LinearLayout toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL); toolbar.setPadding(dp(8), dp(6), dp(8), dp(6)); toolbar.setBackgroundColor(background);
+    Button close = toolbarButton("Close", foreground); close.setContentDescription("Close in-app post viewer"); close.setOnClickListener(view -> finish()); toolbar.addView(close);
+    LinearLayout labels = new LinearLayout(this); labels.setOrientation(LinearLayout.VERTICAL); labels.setPadding(dp(8), 0, dp(8), 0);
+    TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setMaxLines(1); title.setText(getIntent().getStringExtra(EXTRA_TITLE)); labels.addView(title);
+    TextView domain = new TextView(this); domain.setTextColor(Color.parseColor(dark ? "#A8C0B5" : "#5F756B")); domain.setTextSize(12); domain.setMaxLines(1); domain.setText(Uri.parse(sourceUrl).getHost()); labels.addView(domain);
+    toolbar.addView(labels, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+    Button browser = toolbarButton("Browser", foreground); browser.setContentDescription("Open post in browser"); browser.setOnClickListener(view -> openExternal(sourceUrl)); toolbar.addView(browser);
+    root.addView(toolbar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+    webView = new WebView(this); webView.setBackgroundColor(background);
+    WebSettings settings = webView.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(true); settings.setLoadWithOverviewMode(true); settings.setUseWideViewPort(true); settings.setSupportMultipleWindows(false);
+    webView.setWebChromeClient(new WebChromeClient() { @Override public void onReceivedTitle(WebView view, String pageTitle) { if (pageTitle != null && !pageTitle.isEmpty()) title.setText(pageTitle); } });
+    webView.setWebViewClient(new WebViewClient() {
+      @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return handleNavigation(request.getUrl()); }
+      @SuppressWarnings("deprecation") @Override public boolean shouldOverrideUrlLoading(WebView view, String url) { return handleNavigation(Uri.parse(url)); }
+    });
+    root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1)); setContentView(root); webView.loadUrl(sourceUrl);
+  }
+
+  private Button toolbarButton(String text, int colour) { Button button = new Button(this); button.setAllCaps(false); button.setText(text); button.setTextColor(colour); button.setBackgroundColor(Color.TRANSPARENT); button.setMinWidth(0); button.setMinimumWidth(0); return button; }
+  private boolean handleNavigation(Uri uri) { String scheme = uri.getScheme(); if ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) return false; try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { } return true; }
+  private void openExternal(String url) { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } }
+  private boolean isWebUrl(String url) { if (url == null) return false; String scheme = Uri.parse(url).getScheme(); return "https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme); }
+  private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
+  @Override public void onBackPressed() { if (webView != null && webView.canGoBack()) webView.goBack(); else super.onBackPressed(); }
+  @Override protected void onDestroy() { if (webView != null) { webView.stopLoading(); webView.loadUrl("about:blank"); webView.clearHistory(); webView.removeAllViews(); webView.destroy(); webView = null; } super.onDestroy(); }
+}
+`;
+await writeFile(postActivityPath, postActivityJava, 'utf8');
 console.log(
-  'Applied Personix branded splash, system bars, Keystore biometrics, direct metadata, picture-in-picture and R8 patches.',
+  'Applied Personix branded splash, system bars, Keystore biometrics, direct metadata, in-app post browser, picture-in-picture and R8 patches.',
 );

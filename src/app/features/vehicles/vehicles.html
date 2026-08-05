@@ -46,9 +46,14 @@
           <dd>{{ vehicle.pollutionExpiry || 'Expiry not recorded' }}</dd>
         </div>
       </dl>
-      <button type="button" class="button secondary danger-text" (click)="remove(vehicle)">
-        <app-icon name="trash" /> Delete
-      </button>
+      <div class="vehicle-actions">
+        <button type="button" class="button secondary" (click)="edit(vehicle)">
+          <app-icon name="edit" /> Edit
+        </button>
+        <button type="button" class="button secondary danger-text" (click)="remove(vehicle)">
+          <app-icon name="trash" /> Delete
+        </button>
+      </div>
     </article>
   } @empty {
     <div class="empty-state card">
@@ -63,12 +68,12 @@
     type="button"
     class="editor-backdrop"
     aria-label="Close editor"
-    (click)="panelOpen.set(false)"
+    (click)="closeEditor()"
   ></button>
-  <section class="editor">
+  <section class="editor" role="dialog" aria-modal="true" aria-labelledby="vehicle-editor-title">
     <header>
-      <h2>Add vehicle</h2>
-      <button type="button" class="icon-button" aria-label="Close" (click)="panelOpen.set(false)">
+      <h2 id="vehicle-editor-title">{{ editingVehicle() ? 'Edit vehicle' : 'Add vehicle' }}</h2>
+      <button type="button" class="icon-button" aria-label="Close" (click)="closeEditor()">
         <app-icon name="close" />
       </button>
     </header>
@@ -100,7 +105,9 @@
       ><label class="wide">Notes<textarea formControlName="notes"></textarea></label
       ><label class="check"><input type="checkbox" formControlName="favourite" /> Favourite</label>
       <div class="form-actions wide">
-        <button type="submit" class="button">Save vehicle</button>
+        <button type="submit" class="button">
+          {{ editingVehicle() ? 'Update vehicle' : 'Save vehicle' }}
+        </button>
       </div>
     </form>
   </section>

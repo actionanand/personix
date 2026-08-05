@@ -106,6 +106,10 @@
   color: var(--muted);
   text-decoration: line-through;
 }
+.item-actions {
+  display: flex;
+  align-items: center;
+}
 .check-button {
   display: grid;
   width: 1.45rem;

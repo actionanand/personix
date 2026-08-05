@@ -76,6 +76,7 @@ export class Notes {
       confirmText: 'Save',
       promptLabel: 'Note text',
       promptType: 'text',
+      promptValue: note.text,
     });
     if (!result.confirmed || !result.value.trim()) return;
     await this.repository.save(result.value, note);

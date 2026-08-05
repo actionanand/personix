@@ -21,5 +21,9 @@ declare global {
       isSupported(): boolean;
       enter(width: number, height: number): void;
     };
+    readonly PersonixBrowser?: {
+      openInApp(url: string, title: string): void;
+      openExternal(url: string): void;
+    };
   }
 }

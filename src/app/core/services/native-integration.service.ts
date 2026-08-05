@@ -68,6 +68,18 @@ export class NativeIntegrationService {
     return true;
   }
 
+  openInAppBrowser(url: string, title: string): boolean {
+    if (!this.isAndroid() || !window.PersonixBrowser) return false;
+    window.PersonixBrowser.openInApp(url, title);
+    return true;
+  }
+
+  openExternal(url: string): boolean {
+    if (!this.isAndroid() || !window.PersonixBrowser) return false;
+    window.PersonixBrowser.openExternal(url);
+    return true;
+  }
+
   private waitForResult(action: string, invoke: () => void, timeoutMs = 60_000): Promise<string> {
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => {

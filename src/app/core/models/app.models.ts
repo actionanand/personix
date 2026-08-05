@@ -10,10 +10,20 @@ export type ContentType =
   | 'facebook-reel'
   | 'facebook-share'
   | 'facebook-post'
+  | 'twitter-post'
+  | 'reddit-post'
+  | 'threads-post'
+  | 'bluesky-post'
+  | 'mastodon-post'
+  | 'linkedin-post'
+  | 'google-maps'
   | 'tiktok'
   | 'tiktok-share'
   | 'dailymotion'
   | 'vimeo'
+  | 'peertube'
+  | 'twitch'
+  | 'wistia'
   | 'generic-video'
   | 'post'
   | 'article'
@@ -97,6 +107,7 @@ export interface ContentFilters {
   readonly favouriteOnly: boolean;
   readonly consumed: 'all' | 'consumed' | 'unconsumed';
   readonly adultOnly: boolean;
+  readonly excludeAdult: boolean;
   readonly dateFrom: string;
   readonly dateTo: string;
   readonly sort: ContentSort;
@@ -106,6 +117,10 @@ export interface AstrologyName {
   readonly id: string;
   readonly english: string;
   readonly tamil: string;
+}
+
+export interface RasiName extends AstrologyName {
+  readonly western: string;
 }
 
 export interface FamilyMember extends ArchivableRecord {
@@ -249,6 +264,8 @@ export interface PinParameters {
 
 export interface AppSettings extends BaseRecord {
   readonly theme: ThemePreference;
+  readonly openPostsInApp: boolean;
+  readonly muteVideosByDefault: boolean;
   readonly showAdultContent: boolean;
   readonly androidMetadataEnabled: boolean;
   readonly browserMetadataEnabled: boolean;
@@ -366,10 +383,20 @@ export const CONTENT_TYPES: readonly { readonly value: ContentType; readonly lab
   { value: 'facebook-reel', label: 'Facebook Reel' },
   { value: 'facebook-share', label: 'Facebook shared video' },
   { value: 'facebook-post', label: 'Facebook post' },
+  { value: 'twitter-post', label: 'X / Twitter post' },
+  { value: 'reddit-post', label: 'Reddit post' },
+  { value: 'threads-post', label: 'Threads post' },
+  { value: 'bluesky-post', label: 'Bluesky post' },
+  { value: 'mastodon-post', label: 'Mastodon post' },
+  { value: 'linkedin-post', label: 'LinkedIn post' },
+  { value: 'google-maps', label: 'Google Maps place' },
   { value: 'tiktok', label: 'TikTok video' },
   { value: 'tiktok-share', label: 'TikTok shared video' },
   { value: 'dailymotion', label: 'Dailymotion' },
   { value: 'vimeo', label: 'Vimeo' },
+  { value: 'peertube', label: 'PeerTube' },
+  { value: 'twitch', label: 'Twitch' },
+  { value: 'wistia', label: 'Wistia' },
   { value: 'generic-video', label: 'Generic video' },
   { value: 'post', label: 'Post' },
   { value: 'article', label: 'Article' },
@@ -388,6 +415,9 @@ export const VIDEO_CONTENT_TYPES: readonly ContentType[] = [
   'tiktok-share',
   'dailymotion',
   'vimeo',
+  'peertube',
+  'twitch',
+  'wistia',
   'generic-video',
 ];
 
@@ -413,49 +443,49 @@ export const BLOOD_GROUPS = [
   'Custom',
 ] as const;
 
-export const RASI_OPTIONS: readonly AstrologyName[] = [
-  { id: 'mesham', english: 'Mesham', tamil: 'மேஷம்' },
-  { id: 'rishabam', english: 'Rishabam', tamil: 'ரிஷபம்' },
-  { id: 'mithunam', english: 'Mithunam', tamil: 'மிதுனம்' },
-  { id: 'kadagam', english: 'Kadagam', tamil: 'கடகம்' },
-  { id: 'simmam', english: 'Simmam', tamil: 'சிம்மம்' },
-  { id: 'kanni', english: 'Kanni', tamil: 'கன்னி' },
-  { id: 'thulam', english: 'Thulam', tamil: 'துலாம்' },
-  { id: 'viruchigam', english: 'Viruchigam', tamil: 'விருச்சிகம்' },
-  { id: 'dhanusu', english: 'Dhanusu', tamil: 'தனுசு' },
-  { id: 'magaram', english: 'Magaram', tamil: 'மகரம்' },
-  { id: 'kumbam', english: 'Kumbam', tamil: 'கும்பம்' },
-  { id: 'meenam', english: 'Meenam', tamil: 'மீனம்' },
+export const RASI_OPTIONS: readonly RasiName[] = [
+  { id: 'mesham', english: 'Mesha', western: 'Aries', tamil: 'மேஷம்' },
+  { id: 'rishabam', english: 'Vrishabha', western: 'Taurus', tamil: 'ரிஷபம்' },
+  { id: 'mithunam', english: 'Mithuna', western: 'Gemini', tamil: 'மிதுனம்' },
+  { id: 'kadagam', english: 'Karka', western: 'Cancer', tamil: 'கடகம்' },
+  { id: 'simmam', english: 'Simha', western: 'Leo', tamil: 'சிம்மம்' },
+  { id: 'kanni', english: 'Kanya', western: 'Virgo', tamil: 'கன்னி' },
+  { id: 'thulam', english: 'Tula', western: 'Libra', tamil: 'துலாம்' },
+  { id: 'viruchigam', english: 'Vrishchika', western: 'Scorpio', tamil: 'விருச்சிகம்' },
+  { id: 'dhanusu', english: 'Dhanu', western: 'Sagittarius', tamil: 'தனுசு' },
+  { id: 'magaram', english: 'Makara', western: 'Capricorn', tamil: 'மகரம்' },
+  { id: 'kumbam', english: 'Kumbha', western: 'Aquarius', tamil: 'கும்பம்' },
+  { id: 'meenam', english: 'Meena', western: 'Pisces', tamil: 'மீனம்' },
 ];
 
 export const NAKSHATRA_OPTIONS: readonly AstrologyName[] = [
-  ['aswini', 'Aswini', 'அசுவினி'],
+  ['aswini', 'Ashwini', 'அஸ்வினி'],
   ['bharani', 'Bharani', 'பரணி'],
-  ['karthigai', 'Karthigai', 'கார்த்திகை'],
+  ['karthigai', 'Krittika', 'கார்த்திகை'],
   ['rohini', 'Rohini', 'ரோகிணி'],
-  ['mirugasirisham', 'Mirugasirisham', 'மிருகசீரிடம்'],
-  ['thiruvathirai', 'Thiruvathirai', 'திருவாதிரை'],
-  ['punarpoosam', 'Punarpoosam', 'புனர்பூசம்'],
-  ['poosam', 'Poosam', 'பூசம்'],
-  ['ayilyam', 'Ayilyam', 'ஆயில்யம்'],
-  ['magam', 'Magam', 'மகம்'],
-  ['pooram', 'Pooram', 'பூரம்'],
-  ['uthiram', 'Uthiram', 'உத்திரம்'],
-  ['hastham', 'Hastham', 'ஹஸ்தம்'],
-  ['chithirai', 'Chithirai', 'சித்திரை'],
-  ['swathi', 'Swathi', 'சுவாதி'],
-  ['visakam', 'Visakam', 'விசாகம்'],
-  ['anusham', 'Anusham', 'அனுஷம்'],
-  ['kettai', 'Kettai', 'கேட்டை'],
-  ['moolam', 'Moolam', 'மூலம்'],
-  ['pooradam', 'Pooradam', 'பூராடம்'],
-  ['uthiradam', 'Uthiradam', 'உத்திராடம்'],
-  ['thiruvonam', 'Thiruvonam', 'திருவோணம்'],
-  ['avittam', 'Avittam', 'அவிட்டம்'],
-  ['sathayam', 'Sathayam', 'சதயம்'],
-  ['poorattathi', 'Poorattathi', 'பூரட்டாதி'],
-  ['uthirattathi', 'Uthirattathi', 'உத்திரட்டாதி'],
-  ['revathi', 'Revathi', 'ரேவதி'],
+  ['mirugasirisham', 'Mrigashirsha', 'மிருகசீரிடம்'],
+  ['thiruvathirai', 'Ardra', 'திருவாதிரை'],
+  ['punarpoosam', 'Punarvasu', 'புனர்பூசம்'],
+  ['poosam', 'Pushya', 'பூசம்'],
+  ['ayilyam', 'Ashlesha', 'ஆயில்யம்'],
+  ['magam', 'Magha', 'மகம்'],
+  ['pooram', 'Purva Phalguni', 'பூரம்'],
+  ['uthiram', 'Uttara Phalguni', 'உத்திரம்'],
+  ['hastham', 'Hasta', 'ஹஸ்தம்'],
+  ['chithirai', 'Chitra', 'சித்திரை'],
+  ['swathi', 'Swati', 'சுவாதி'],
+  ['visakam', 'Vishakha', 'விசாகம்'],
+  ['anusham', 'Anuradha', 'அனுஷம்'],
+  ['kettai', 'Jyeshtha', 'கேட்டை'],
+  ['moolam', 'Mula', 'மூலம்'],
+  ['pooradam', 'Purva Ashadha', 'பூராடம்'],
+  ['uthiradam', 'Uttara Ashadha', 'உத்திராடம்'],
+  ['thiruvonam', 'Shravana', 'திருவோணம்'],
+  ['avittam', 'Dhanishta', 'அவிட்டம்'],
+  ['sathayam', 'Shatabhisha', 'சதயம்'],
+  ['poorattathi', 'Purva Bhadrapada', 'பூரட்டாதி'],
+  ['uthirattathi', 'Uttara Bhadrapada', 'உத்திரட்டாதி'],
+  ['revathi', 'Revati', 'ரேவதி'],
 ].map(([id, english, tamil]) => ({ id, english, tamil }));
 
 export function newId(): string {
