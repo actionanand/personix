@@ -1,6 +1,16 @@
-import { Component, ElementRef, forwardRef, input, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  computed,
+  ElementRef,
+  forwardRef,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { AppIcon } from './app-icon';
+
+let nextTokenInputId = 0;
 
 @Component({
   selector: 'app-token-input',
@@ -9,38 +19,71 @@ import { AppIcon } from './app-icon';
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => TokenInput), multi: true },
   ],
   template: `
-    <div class="token-field" [class.disabled]="disabled()">
-      @for (token of tokens(); track token; let index = $index) {
-        <span class="token-pill">
-          <span>{{ token }}</span>
-          <button
-            type="button"
-            [attr.aria-label]="'Remove ' + token"
-            [disabled]="disabled()"
-            (click)="remove(index, $event)"
-          >
-            <app-icon name="close" />
-          </button>
-        </span>
+    <div class="token-shell">
+      <div class="token-field" [class.disabled]="disabled()">
+        @for (token of tokens(); track token; let index = $index) {
+          <span class="token-pill">
+            <span>{{ token }}</span>
+            <button
+              type="button"
+              [attr.aria-label]="'Remove ' + token"
+              [disabled]="disabled()"
+              (click)="remove(index, $event)"
+            >
+              <app-icon name="close" />
+            </button>
+          </span>
+        }
+        <input
+          #entry
+          type="text"
+          autocomplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          [value]="draft()"
+          [placeholder]="tokens().length ? '' : placeholder()"
+          [attr.aria-label]="ariaLabel()"
+          [attr.aria-controls]="listboxId"
+          [attr.aria-expanded]="filteredSuggestions().length > 0"
+          [attr.aria-activedescendant]="activeSuggestionId()"
+          [disabled]="disabled()"
+          (focus)="beginEditing()"
+          (input)="updateDraft($event)"
+          (keydown)="handleKeydown($event)"
+          (blur)="commitAndTouch()"
+        />
+      </div>
+      @if (filteredSuggestions().length) {
+        <div
+          class="suggestion-list"
+          role="listbox"
+          [id]="listboxId"
+          [attr.aria-label]="ariaLabel() + ' suggestions'"
+        >
+          @for (suggestion of filteredSuggestions(); track suggestion; let index = $index) {
+            <button
+              type="button"
+              role="option"
+              [id]="suggestionId(index)"
+              [class.active]="index === activeSuggestionIndex()"
+              [attr.aria-selected]="index === activeSuggestionIndex()"
+              (pointerdown)="$event.preventDefault()"
+              (click)="chooseSuggestion(suggestion)"
+            >
+              {{ suggestion }}
+            </button>
+          }
+        </div>
       }
-      <input
-        #entry
-        type="text"
-        autocomplete="off"
-        [value]="draft()"
-        [placeholder]="tokens().length ? '' : placeholder()"
-        [attr.aria-label]="ariaLabel()"
-        [disabled]="disabled()"
-        (input)="updateDraft($event)"
-        (keydown)="handleKeydown($event)"
-        (blur)="commitAndTouch()"
-      />
     </div>
   `,
   styles: `
     :host {
       display: block;
       min-width: 0;
+    }
+    .token-shell {
+      position: relative;
     }
     .token-field {
       display: flex;
@@ -112,14 +155,73 @@ import { AppIcon } from './app-icon';
       outline: 0;
       background: transparent;
     }
+    .suggestion-list {
+      position: absolute;
+      z-index: 12;
+      top: calc(100% + 0.3rem);
+      right: 0;
+      left: 0;
+      display: grid;
+      max-height: 14rem;
+      overflow-y: auto;
+      padding: 0.35rem;
+      border: 1px solid var(--border-strong);
+      border-radius: 0.75rem;
+      background: var(--surface);
+      box-shadow: var(--shadow-lg);
+    }
+    .suggestion-list button {
+      width: 100%;
+      min-height: 2.65rem;
+      padding: 0.55rem 0.7rem;
+      border: 0;
+      border-radius: 0.55rem;
+      color: var(--text);
+      background: transparent;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 650;
+      text-align: left;
+    }
+    .suggestion-list button:hover,
+    .suggestion-list button.active {
+      color: var(--primary-deep);
+      background: var(--primary-soft);
+    }
   `,
 })
 export class TokenInput implements ControlValueAccessor {
   readonly placeholder = input('Type and press comma');
   readonly ariaLabel = input('Add values');
+  readonly suggestions = input<readonly string[]>([]);
   readonly tokens = signal<readonly string[]>([]);
   readonly draft = signal('');
   readonly disabled = signal(false);
+  readonly suggestionsVisible = signal(false);
+  readonly activeSuggestionIndex = signal(-1);
+  readonly listboxId = `token-suggestions-${nextTokenInputId++}`;
+  readonly filteredSuggestions = computed(() => {
+    const query = this.draft().trim().toLocaleLowerCase();
+    if (!this.suggestionsVisible() || !query) return [];
+    const selected = new Set(this.tokens().map((token) => token.toLocaleLowerCase()));
+    const seen = new Set<string>();
+    return this.suggestions()
+      .map((suggestion) => suggestion.trim())
+      .filter(Boolean)
+      .filter((suggestion) => {
+        const key = suggestion.toLocaleLowerCase();
+        if (selected.has(key) || seen.has(key) || !key.includes(query)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 8);
+  });
+  readonly activeSuggestionId = computed(() => {
+    const index = this.activeSuggestionIndex();
+    return index >= 0 && index < this.filteredSuggestions().length
+      ? this.suggestionId(index)
+      : null;
+  });
   private readonly entry = viewChild<ElementRef<HTMLInputElement>>('entry');
   private onChange: (value: string) => void = () => undefined;
   private onTouched: () => void = () => undefined;
@@ -127,6 +229,7 @@ export class TokenInput implements ControlValueAccessor {
   writeValue(value: string | null | undefined): void {
     this.tokens.set(this.parse(value ?? ''));
     this.draft.set('');
+    this.closeSuggestions();
   }
 
   registerOnChange(callback: (value: string) => void): void {
@@ -145,18 +248,50 @@ export class TokenInput implements ControlValueAccessor {
     if (!this.disabled()) this.entry()?.nativeElement.focus();
   }
 
+  beginEditing(): void {
+    this.suggestionsVisible.set(true);
+  }
+
   updateDraft(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     if (!value.includes(',')) {
       this.draft.set(value);
+      this.suggestionsVisible.set(true);
+      this.activeSuggestionIndex.set(-1);
       return;
     }
     const parts = value.split(',');
     this.add(parts.slice(0, -1));
     this.draft.set(parts.at(-1) ?? '');
+    this.suggestionsVisible.set(true);
+    this.activeSuggestionIndex.set(-1);
   }
 
   handleKeydown(event: KeyboardEvent): void {
+    const suggestions = this.filteredSuggestions();
+    if (event.key === 'ArrowDown' && suggestions.length) {
+      event.preventDefault();
+      this.activeSuggestionIndex.update((index) => (index + 1) % suggestions.length);
+      return;
+    }
+    if (event.key === 'ArrowUp' && suggestions.length) {
+      event.preventDefault();
+      this.activeSuggestionIndex.update((index) =>
+        index <= 0 ? suggestions.length - 1 : index - 1,
+      );
+      return;
+    }
+    if (event.key === 'Escape' && suggestions.length) {
+      event.preventDefault();
+      this.closeSuggestions();
+      return;
+    }
+    if (event.key === 'Enter' && this.activeSuggestionIndex() >= 0) {
+      event.preventDefault();
+      const selected = suggestions[this.activeSuggestionIndex()];
+      if (selected) this.chooseSuggestion(selected);
+      return;
+    }
     if (event.key === ',' || event.key === 'Enter') {
       event.preventDefault();
       this.commitDraft();
@@ -170,7 +305,15 @@ export class TokenInput implements ControlValueAccessor {
 
   commitAndTouch(): void {
     this.commitDraft();
+    this.closeSuggestions();
     this.onTouched();
+  }
+
+  chooseSuggestion(suggestion: string): void {
+    this.add([suggestion]);
+    this.draft.set('');
+    this.closeSuggestions();
+    this.focusInput();
   }
 
   remove(index: number, event: MouseEvent): void {
@@ -183,6 +326,16 @@ export class TokenInput implements ControlValueAccessor {
   private commitDraft(): void {
     this.add([this.draft()]);
     this.draft.set('');
+    this.closeSuggestions();
+  }
+
+  suggestionId(index: number): string {
+    return `${this.listboxId}-option-${index}`;
+  }
+
+  private closeSuggestions(): void {
+    this.suggestionsVisible.set(false);
+    this.activeSuggestionIndex.set(-1);
   }
 
   private add(values: readonly string[]): void {

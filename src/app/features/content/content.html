@@ -301,6 +301,7 @@
           formControlName="tags"
           ariaLabel="Tags"
           placeholder="Type a tag and press comma"
+          [suggestions]="tagSuggestions()"
         />
         <small>Press comma or Enter to add a tag.</small>
       </div>
@@ -310,6 +311,7 @@
           formControlName="recipients"
           ariaLabel="Who should receive this?"
           placeholder="Type a name and press comma"
+          [suggestions]="recipientSuggestions()"
         />
         <small>Optional. Press comma or Enter to add a recipient.</small>
       </div>

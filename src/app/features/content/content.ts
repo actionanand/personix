@@ -98,6 +98,10 @@ export class Content {
     { value: '', label: 'Anyone' },
     ...this.recipients().map((item) => ({ value: item.id, label: item.name })),
   ]);
+  protected readonly tagSuggestions = computed(() => this.tags().map((item) => item.name));
+  protected readonly recipientSuggestions = computed(() =>
+    this.recipients().map((item) => item.name),
+  );
   protected readonly sentOptions: readonly SelectPickerOption[] = [
     { value: 'all', label: 'All' },
     { value: 'unsent', label: 'Waiting to send' },
