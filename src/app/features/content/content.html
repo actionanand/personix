@@ -295,16 +295,7 @@
           placeholder="What is this about?"
         ></textarea>
       </label>
-      <label
-        >Category<input
-          formControlName="category"
-          list="content-category-options"
-          placeholder="Optional" /><datalist id="content-category-options">
-          @for (category of categories(); track category.id) {
-            <option [value]="category.name"></option>
-          }</datalist
-      ></label>
-      <label
+      <label class="wide"
         >Tags<input formControlName="tags" placeholder="recipes, weekend" /><small
           >Separate multiple tags with commas</small
         ></label

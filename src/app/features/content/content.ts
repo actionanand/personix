@@ -125,7 +125,6 @@ export class Content {
     title: [''],
     description: [''],
     notes: [''],
-    category: [''],
     tags: [''],
     recipients: [''],
     favourite: [false],
@@ -217,7 +216,6 @@ export class Content {
       title: '',
       description: '',
       notes: '',
-      category: '',
       tags: '',
       recipients: '',
       favourite: false,
@@ -231,7 +229,6 @@ export class Content {
 
   protected edit(item: SavedContent): void {
     this.editing.set(item);
-    const category = this.categories().find((value) => value.id === item.categoryId)?.name ?? '';
     this.contentForm.reset({
       url: item.url,
       contentType: item.contentType,
@@ -239,7 +236,6 @@ export class Content {
       title: item.title,
       description: item.description,
       notes: item.notes,
-      category,
       tags: item.tagIds
         .map((id) => this.tags().find((value) => value.id === id)?.name ?? '')
         .filter(Boolean)
@@ -272,17 +268,11 @@ export class Content {
     this.saving.set(true);
     try {
       const form = this.contentForm.getRawValue();
-      const category = form.category.trim()
-        ? await this.repository.findOrCreateCategory(
-            form.category,
-            form.category.trim().toLocaleLowerCase() === 'adult',
-          )
-        : null;
+      const previous = this.editing();
       const [tags, recipients] = await Promise.all([
         this.repository.findOrCreateTags(form.tags.split(',')),
         this.repository.findOrCreateRecipients(form.recipients.split(',')),
       ]);
-      const previous = this.editing();
       const timestamp = previous?.createdAt;
       const detectedFromUrl = this.repository.detectContent(form.url);
       const detected = {
@@ -305,11 +295,11 @@ export class Content {
         websiteName: previous?.websiteName ?? '',
         favicon: previous?.favicon ?? '',
         notes: form.notes.trim(),
-        categoryId: category?.id ?? '',
+        categoryId: previous?.categoryId ?? this.store.settings().defaultCategoryId,
         tagIds: tags.map((value) => value.id),
         recipientIds: recipients.map((value) => value.id),
         favourite: form.favourite,
-        adult: form.adult || category?.isAdult === true,
+        adult: form.adult,
         consumed: form.consumed,
         sent: form.sent,
         sentAt: form.sent ? previous?.sentAt || new Date().toISOString() : '',
