@@ -253,7 +253,8 @@ export class TokenInput implements ControlValueAccessor {
   }
 
   updateDraft(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
+    const inputElement = event.target as HTMLInputElement;
+    const value = inputElement.value;
     if (!value.includes(',')) {
       this.draft.set(value);
       this.suggestionsVisible.set(true);
@@ -262,7 +263,9 @@ export class TokenInput implements ControlValueAccessor {
     }
     const parts = value.split(',');
     this.add(parts.slice(0, -1));
-    this.draft.set(parts.at(-1) ?? '');
+    const remainder = parts.at(-1) ?? '';
+    this.draft.set(remainder);
+    inputElement.value = remainder;
     this.suggestionsVisible.set(true);
     this.activeSuggestionIndex.set(-1);
   }

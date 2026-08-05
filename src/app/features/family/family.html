@@ -335,14 +335,26 @@
           <label>Provider name *<input formControlName="providerName" /></label
           ><label>Policy name<input formControlName="policyName" /></label
           ><label>Policy number<input formControlName="policyNumber" /></label
-          ><label>TPA name (optional)<input formControlName="tpaName" /></label
-          ><label
-            >Contact numbers<input
+          ><label>TPA name (optional)<input formControlName="tpaName" /></label>
+          <div class="form-field">
+            <span>Contact numbers</span>
+            <app-token-input
               formControlName="contacts"
-              placeholder="Comma separated" /></label
-          ><label
-            >Email addresses<input formControlName="emails" placeholder="Comma separated" /></label
-          ><label>Website<input type="url" formControlName="website" /></label
+              ariaLabel="Insurance contact numbers"
+              placeholder="Type a number, then comma"
+            />
+            <small>Press comma or Enter to add each number.</small>
+          </div>
+          <div class="form-field">
+            <span>Email addresses</span>
+            <app-token-input
+              formControlName="emails"
+              ariaLabel="Insurance email addresses"
+              placeholder="Type an email, then comma"
+            />
+            <small>Press comma or Enter to add each email.</small>
+          </div>
+          <label>Website<input type="url" formControlName="website" /></label
           ><label>Start date<input type="date" formControlName="startDate" /></label
           ><label>Expiry date<input type="date" formControlName="expiryDate" /></label
           ><label class="wide">Notes<textarea formControlName="notes"></textarea></label

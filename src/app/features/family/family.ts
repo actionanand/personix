@@ -16,12 +16,13 @@ import { DialogService } from '../../core/services/dialog.service';
 import { FeedbackService } from '../../core/services/feedback.service';
 import { AppIcon } from '../../shared/components/app-icon';
 import { SelectPicker, SelectPickerOption } from '../../shared/components/select-picker';
+import { TokenInput } from '../../shared/components/token-input';
 
 type FamilyTab = 'members' | 'hospital' | 'insurance' | 'items' | 'blood';
 
 @Component({
   selector: 'app-family',
-  imports: [ReactiveFormsModule, AppIcon, SelectPicker],
+  imports: [ReactiveFormsModule, AppIcon, SelectPicker, TokenInput],
   templateUrl: './family.html',
   styleUrl: './family.scss',
 })
@@ -61,7 +62,7 @@ export class Family {
     { value: '', label: 'Not recorded' },
     ...NAKSHATRA_OPTIONS.map((item) => ({
       value: item.id,
-      label: `${item.english} · ${item.tamil}`,
+      label: `${item.english} - ${item.tamil}`,
     })),
   ];
   protected readonly itemTypeOptions: readonly SelectPickerOption[] = [
@@ -291,7 +292,7 @@ export class Family {
   }
   protected nakshatraName(id: string): string {
     const item = this.nakshatras.find((value) => value.id === id);
-    return item ? `${item.english} · ${item.tamil}` : '';
+    return item ? `${item.english} - ${item.tamil}` : '';
   }
   protected bloodLabel(item: BloodGroupRecord): string {
     return item.bloodGroup === 'Unknown'

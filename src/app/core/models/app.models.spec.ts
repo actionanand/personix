@@ -19,5 +19,20 @@ describe('Personix model helpers', () => {
     expect(NAKSHATRA_OPTIONS).toHaveLength(27);
     expect(RASI_OPTIONS.every((item) => item.english && item.tamil)).toBe(true);
     expect(NAKSHATRA_OPTIONS.every((item) => item.english && item.tamil)).toBe(true);
+    expect(NAKSHATRA_OPTIONS.find((item) => item.id === 'aswini')).toEqual({
+      id: 'aswini',
+      english: 'Ashwini',
+      tamil: 'அஸ்வினி',
+    });
+    expect(NAKSHATRA_OPTIONS.find((item) => item.id === 'punarpoosam')).toEqual({
+      id: 'punarpoosam',
+      english: 'Punarvasu',
+      tamil: 'புனர்பூசம்',
+    });
+    expect(NAKSHATRA_OPTIONS.find((item) => item.id === 'poosam')).toEqual({
+      id: 'poosam',
+      english: 'Pushya',
+      tamil: 'பூசம்',
+    });
   });
 });
