@@ -16,6 +16,11 @@ import { DialogService } from '../../core/services/dialog.service';
 import { FeedbackService } from '../../core/services/feedback.service';
 import { MetadataService } from '../../core/services/metadata.service';
 import { NativeIntegrationService } from '../../core/services/native-integration.service';
+import {
+  buildFacebookVideoUrl,
+  extractFacebookVideoId,
+  extractTikTokVideoId,
+} from '../../core/utils/content-url';
 import { AppIcon } from '../../shared/components/app-icon';
 import { SelectPicker, SelectPickerOption } from '../../shared/components/select-picker';
 import { ContentPreview } from './content-preview';
@@ -315,6 +320,7 @@ export class Content {
         metadataError: previous?.metadataError ?? '',
         metadataSource: previous?.metadataSource ?? 'none',
       });
+      item = await this.resolveShareUrl(item);
       this.panelOpen.set(false);
       this.feedback.notify(previous ? 'Content updated' : 'Content saved');
       await this.refresh();
@@ -346,7 +352,36 @@ export class Content {
     }
   }
 
+  private async resolveShareUrl(item: SavedContent): Promise<SavedContent> {
+    const isShare = item.contentType === 'facebook-share' || item.contentType === 'tiktok-share';
+    if (!isShare) return item;
+    const source = item.resolvedUrl || item.url;
+    const existingId =
+      item.contentType === 'facebook-share'
+        ? extractFacebookVideoId(source)
+        : extractTikTokVideoId(source);
+    if (existingId && item.aspectRatio) return item;
+    const resolution = await this.metadata.resolveShareUrl(item.url, this.store.settings());
+    if (!resolution) return item;
+    const detected = this.repository.detectContent(resolution.url);
+    const mediaId = existingId ?? detected.mediaId;
+    if (!mediaId) return item;
+    const resolvedUrl =
+      item.resolvedUrl && existingId
+        ? item.resolvedUrl
+        : item.contentType === 'facebook-share'
+          ? buildFacebookVideoUrl(resolution.url)
+          : resolution.url;
+    return this.repository.save({
+      ...item,
+      resolvedUrl,
+      mediaId,
+      aspectRatio: resolution.aspectRatio ?? item.aspectRatio,
+    });
+  }
+
   protected async refreshMetadata(item: SavedContent): Promise<void> {
+    item = await this.resolveShareUrl(item);
     const patch = await this.metadata.fetch(item.url, this.store.settings());
     const resolved = this.repository.detectContent(
       patch.resolvedUrl || item.resolvedUrl || item.url,

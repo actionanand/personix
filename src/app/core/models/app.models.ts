@@ -55,6 +55,7 @@ export interface SavedContent extends BaseRecord {
   readonly resolvedUrl?: string;
   readonly mediaId?: string;
   readonly startTimeSeconds?: number;
+  readonly aspectRatio?: number;
   readonly domain: string;
   readonly contentType: ContentType;
   readonly platform: string;

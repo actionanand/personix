@@ -57,4 +57,37 @@ describe('content URL utilities', () => {
     });
     expect(embed).toContain('/plugins/post.php');
   });
+
+  it('normalizes a resolved Facebook group share to the canonical reel URL', () => {
+    const embed = buildEmbedUrl({
+      contentType: 'facebook-share',
+      url: 'https://www.facebook.com/share/v/1HXy5sTsvb/',
+      resolvedUrl: 'https://www.facebook.com/sanskritkalp/videos/connecting/1646510169815130/',
+      mediaId: '1646510169815130',
+      startTimeSeconds: 0,
+    });
+    expect(embed).toContain(encodeURIComponent('https://www.facebook.com/reel/1646510169815130'));
+  });
+
+  it('resolves a known Facebook share code without a resolved URL', () => {
+    const embed = buildEmbedUrl({
+      contentType: 'facebook-share',
+      url: 'https://www.facebook.com/share/v/1HXy5sTsvb/',
+      resolvedUrl: '',
+      mediaId: '',
+      startTimeSeconds: 0,
+    });
+    expect(embed).toContain(encodeURIComponent('https://www.facebook.com/reel/1646510169815130'));
+  });
+
+  it('normalizes any resolved Facebook share, not just known overrides', () => {
+    const embed = buildEmbedUrl({
+      contentType: 'facebook-share',
+      url: 'https://www.facebook.com/share/v/1ByFGRo8FF/',
+      resolvedUrl: 'https://www.facebook.com/61571672971758/videos/some-slug/1821110698482978/',
+      mediaId: '1821110698482978',
+      startTimeSeconds: 0,
+    });
+    expect(embed).toContain(encodeURIComponent('https://www.facebook.com/reel/1821110698482978'));
+  });
 });

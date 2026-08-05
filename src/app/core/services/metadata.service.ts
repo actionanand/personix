@@ -15,13 +15,18 @@ export type MetadataPatch = Pick<
   | 'metadataSource'
 > & { readonly resolvedUrl?: string };
 
+export interface ShareResolution {
+  readonly url: string;
+  readonly aspectRatio: number | null;
+}
+
 interface ThirdPartyResponse {
   readonly status?: string;
   readonly data?: {
     readonly url?: string;
     readonly title?: string;
     readonly description?: string;
-    readonly image?: { readonly url?: string };
+    readonly image?: { readonly url?: string; readonly width?: number; readonly height?: number };
     readonly logo?: { readonly url?: string };
     readonly publisher?: string;
   };
@@ -83,6 +88,53 @@ export class MetadataService {
     } catch (error) {
       return this.failure(error, 'browser-third-party');
     }
+  }
+
+  // Follows a share-link redirect to its canonical URL. Runs independently of the
+  // metadata toggles because a resolved URL is required for the video to play.
+  // Android resolves only through the native bridge; third-party services such as
+  // microlink are never contacted on Android.
+  async resolveShareUrl(url: string, settings: AppSettings): Promise<ShareResolution | null> {
+    if (this.native.isAndroid()) {
+      try {
+        const result = await this.native.fetchMetadata(
+          url,
+          settings.metadataTimeoutMs,
+          settings.maxMetadataImageBytes,
+        );
+        const resolved = this.safeUrl(result?.url);
+        return resolved ? { url: resolved, aspectRatio: null } : null;
+      } catch {
+        return null;
+      }
+    }
+    try {
+      const endpoint = new URL('https://api.microlink.io/');
+      endpoint.searchParams.set('url', url);
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), settings.metadataTimeoutMs);
+      const response = await fetch(endpoint, { signal: controller.signal });
+      window.clearTimeout(timer);
+      if (!response.ok) return null;
+      const body = (await response.json()) as ThirdPartyResponse;
+      if (body.status && body.status !== 'success') return null;
+      const resolved = this.safeUrl(body.data?.url);
+      if (!resolved) return null;
+      return { url: resolved, aspectRatio: this.aspectRatio(body.data?.image) };
+    } catch {
+      return null;
+    }
+  }
+
+  private aspectRatio(image?: {
+    readonly width?: number;
+    readonly height?: number;
+  }): number | null {
+    const width = image?.width;
+    const height = image?.height;
+    if (!width || !height || width <= 0 || height <= 0) return null;
+    const ratio = width / height;
+    return Number.isFinite(ratio) ? ratio : null;
   }
 
   private patch(
