@@ -113,6 +113,26 @@
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
+.member-details span {
+  border: 1px solid transparent;
+  color: var(--text);
+}
+.member-details .detail-blood {
+  border-color: color-mix(in srgb, #168257 25%, transparent);
+  background: color-mix(in srgb, #168257 16%, var(--surface));
+}
+.member-details .detail-rasi {
+  border-color: color-mix(in srgb, #2878b5 25%, transparent);
+  background: color-mix(in srgb, #2878b5 16%, var(--surface));
+}
+.member-details .detail-nakshatra {
+  border-color: color-mix(in srgb, #8056ad 25%, transparent);
+  background: color-mix(in srgb, #8056ad 16%, var(--surface));
+}
+.member-details .detail-gothram {
+  border-color: color-mix(in srgb, #b16c1f 25%, transparent);
+  background: color-mix(in srgb, #b16c1f 16%, var(--surface));
+}
 .record-actions {
   display: flex;
 }

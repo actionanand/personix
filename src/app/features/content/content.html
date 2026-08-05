@@ -451,7 +451,7 @@
           [disabled]="loading() || currentPage() === 1"
           (click)="goToPage(1)"
         >
-          First {{ paginationItemLabel() }}
+          <app-icon name="chevrons-left" />
         </button>
         <button
           type="button"
@@ -460,7 +460,7 @@
           [disabled]="loading() || currentPage() === 1"
           (click)="goToPage(currentPage() - 1)"
         >
-          Previous
+          <app-icon name="chevron-left" />
         </button>
         @for (token of paginationTokens(); track token.key) {
           @if (token.page; as page) {
@@ -486,7 +486,7 @@
           [disabled]="loading() || currentPage() === totalPages()"
           (click)="goToPage(currentPage() + 1)"
         >
-          Next
+          <app-icon name="chevron-right" />
         </button>
         <button
           type="button"
@@ -495,7 +495,7 @@
           [disabled]="loading() || currentPage() === totalPages()"
           (click)="goToPage(totalPages())"
         >
-          Last {{ paginationItemLabel() }}
+          <app-icon name="chevrons-right" />
         </button>
       </div>
     </nav>

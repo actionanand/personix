@@ -61,6 +61,14 @@ export class ChecklistRepository {
     });
   }
 
+  async updateItem(item: ChecklistItem, text: string): Promise<void> {
+    await this.database.put('checklist_items', {
+      ...item,
+      text: text.trim(),
+      updatedAt: nowIso(),
+    });
+  }
+
   async removeItem(id: string): Promise<void> {
     await this.database.delete('checklist_items', id);
   }

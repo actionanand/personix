@@ -18,6 +18,24 @@ describe('Personix model helpers', () => {
     expect(RASI_OPTIONS).toHaveLength(12);
     expect(NAKSHATRA_OPTIONS).toHaveLength(27);
     expect(RASI_OPTIONS.every((item) => item.english && item.tamil)).toBe(true);
+    expect(RASI_OPTIONS.find((item) => item.id === 'mesham')).toEqual({
+      id: 'mesham',
+      english: 'Mesha',
+      western: 'Aries',
+      tamil: 'மேஷம்',
+    });
+    expect(RASI_OPTIONS.find((item) => item.id === 'kanni')).toEqual({
+      id: 'kanni',
+      english: 'Kanya',
+      western: 'Virgo',
+      tamil: 'கன்னி',
+    });
+    expect(RASI_OPTIONS.find((item) => item.id === 'magaram')).toEqual({
+      id: 'magaram',
+      english: 'Makara',
+      western: 'Capricorn',
+      tamil: 'மகரம்',
+    });
     expect(NAKSHATRA_OPTIONS.every((item) => item.english && item.tamil)).toBe(true);
     expect(NAKSHATRA_OPTIONS.find((item) => item.id === 'aswini')).toEqual({
       id: 'aswini',

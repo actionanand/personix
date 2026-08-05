@@ -119,6 +119,10 @@ export interface AstrologyName {
   readonly tamil: string;
 }
 
+export interface RasiName extends AstrologyName {
+  readonly western: string;
+}
+
 export interface FamilyMember extends ArchivableRecord {
   readonly name: string;
   readonly relationship: string;
@@ -439,19 +443,19 @@ export const BLOOD_GROUPS = [
   'Custom',
 ] as const;
 
-export const RASI_OPTIONS: readonly AstrologyName[] = [
-  { id: 'mesham', english: 'Mesham', tamil: 'மேஷம்' },
-  { id: 'rishabam', english: 'Rishabam', tamil: 'ரிஷபம்' },
-  { id: 'mithunam', english: 'Mithunam', tamil: 'மிதுனம்' },
-  { id: 'kadagam', english: 'Kadagam', tamil: 'கடகம்' },
-  { id: 'simmam', english: 'Simmam', tamil: 'சிம்மம்' },
-  { id: 'kanni', english: 'Kanni', tamil: 'கன்னி' },
-  { id: 'thulam', english: 'Thulam', tamil: 'துலாம்' },
-  { id: 'viruchigam', english: 'Viruchigam', tamil: 'விருச்சிகம்' },
-  { id: 'dhanusu', english: 'Dhanusu', tamil: 'தனுசு' },
-  { id: 'magaram', english: 'Magaram', tamil: 'மகரம்' },
-  { id: 'kumbam', english: 'Kumbam', tamil: 'கும்பம்' },
-  { id: 'meenam', english: 'Meenam', tamil: 'மீனம்' },
+export const RASI_OPTIONS: readonly RasiName[] = [
+  { id: 'mesham', english: 'Mesha', western: 'Aries', tamil: 'மேஷம்' },
+  { id: 'rishabam', english: 'Vrishabha', western: 'Taurus', tamil: 'ரிஷபம்' },
+  { id: 'mithunam', english: 'Mithuna', western: 'Gemini', tamil: 'மிதுனம்' },
+  { id: 'kadagam', english: 'Karka', western: 'Cancer', tamil: 'கடகம்' },
+  { id: 'simmam', english: 'Simha', western: 'Leo', tamil: 'சிம்மம்' },
+  { id: 'kanni', english: 'Kanya', western: 'Virgo', tamil: 'கன்னி' },
+  { id: 'thulam', english: 'Tula', western: 'Libra', tamil: 'துலாம்' },
+  { id: 'viruchigam', english: 'Vrishchika', western: 'Scorpio', tamil: 'விருச்சிகம்' },
+  { id: 'dhanusu', english: 'Dhanu', western: 'Sagittarius', tamil: 'தனுசு' },
+  { id: 'magaram', english: 'Makara', western: 'Capricorn', tamil: 'மகரம்' },
+  { id: 'kumbam', english: 'Kumbha', western: 'Aquarius', tamil: 'கும்பம்' },
+  { id: 'meenam', english: 'Meena', western: 'Pisces', tamil: 'மீனம்' },
 ];
 
 export const NAKSHATRA_OPTIONS: readonly AstrologyName[] = [

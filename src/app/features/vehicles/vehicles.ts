@@ -24,6 +24,7 @@ export class Vehicles {
   protected readonly vehicles = signal<readonly Vehicle[]>([]);
   protected readonly members = signal<readonly FamilyMember[]>([]);
   protected readonly panelOpen = signal(false);
+  protected readonly editingVehicle = signal<Vehicle | null>(null);
   protected readonly vehicleTypeOptions: readonly SelectPickerOption[] = [
     { value: 'car', label: 'Car' },
     { value: 'motorcycle', label: 'Motorcycle' },
@@ -67,6 +68,7 @@ export class Vehicles {
     this.members.set(members);
   }
   protected open(): void {
+    this.editingVehicle.set(null);
     this.form.reset({
       nickname: '',
       registrationNumber: '',
@@ -85,14 +87,44 @@ export class Vehicles {
     });
     this.panelOpen.set(true);
   }
+  protected edit(vehicle: Vehicle): void {
+    this.editingVehicle.set(vehicle);
+    this.form.reset({
+      nickname: vehicle.nickname,
+      registrationNumber: vehicle.registrationNumber,
+      make: vehicle.make,
+      model: vehicle.model,
+      variant: vehicle.variant,
+      vehicleType: vehicle.vehicleType,
+      owner: vehicle.owner,
+      familyMemberId: vehicle.familyMemberId,
+      registrationDate: vehicle.registrationDate,
+      insuranceProvider: vehicle.insuranceProvider,
+      insuranceExpiry: vehicle.insuranceExpiry,
+      pollutionExpiry: vehicle.pollutionExpiry,
+      notes: vehicle.notes,
+      favourite: vehicle.favourite,
+    });
+    this.panelOpen.set(true);
+  }
+  protected closeEditor(): void {
+    this.panelOpen.set(false);
+    this.editingVehicle.set(null);
+  }
   protected async save(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-    await this.repository.save({ ...this.form.getRawValue(), archived: false });
-    this.panelOpen.set(false);
-    this.feedback.notify('Vehicle saved locally');
+    const editingVehicle = this.editingVehicle();
+    await this.repository.save({
+      ...this.form.getRawValue(),
+      archived: editingVehicle?.archived ?? false,
+      id: editingVehicle?.id,
+      createdAt: editingVehicle?.createdAt,
+    });
+    this.closeEditor();
+    this.feedback.notify(editingVehicle ? 'Vehicle updated' : 'Vehicle saved locally');
     await this.load();
   }
   protected async remove(vehicle: Vehicle): Promise<void> {

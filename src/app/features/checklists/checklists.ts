@@ -95,6 +95,22 @@ export class Checklists {
     const list = this.selected();
     if (list) this.items.set(await this.repository.items(list.id));
   }
+  protected async editItem(item: ChecklistItem): Promise<void> {
+    const result = await this.dialogs.open({
+      title: 'Edit checklist item',
+      description: 'Update this item without changing its completion state.',
+      confirmText: 'Save',
+      promptLabel: 'Item text',
+      promptValue: item.text,
+      icon: 'edit',
+    });
+    const text = result.value.trim();
+    if (!result.confirmed || !text || text === item.text) return;
+    await this.repository.updateItem(item, text);
+    const list = this.selected();
+    if (list) this.items.set(await this.repository.items(list.id));
+    this.feedback.notify('Checklist item updated');
+  }
   protected async removeItem(item: ChecklistItem): Promise<void> {
     await this.repository.removeItem(item.id);
     const list = this.selected();

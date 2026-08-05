@@ -42,32 +42,46 @@
             <p>
               {{ member.relationship }}
               @if (member.dateOfBirth) {
-                · Born {{ member.dateOfBirth }}
+                @let memberAge = age(member.dateOfBirth);
+                · Born {{ member.dateOfBirth | date: 'MMM-dd-yyyy' : 'UTC' }}
+                @if (memberAge !== null) {
+                  ({{ memberAge }} years)
+                }
               }
             </p>
-            <div class="details">
+            <div class="details member-details">
               @if (member.bloodGroup) {
-                <span>{{ member.bloodGroup }}</span>
+                <span class="detail-blood">{{ member.bloodGroup }}</span>
               }
               @if (rasiName(member.rasiId)) {
-                <span>{{ rasiName(member.rasiId) }}</span>
+                <span class="detail-rasi">{{ rasiName(member.rasiId) }}</span>
               }
               @if (nakshatraName(member.nakshatraId)) {
-                <span>{{ nakshatraName(member.nakshatraId) }}</span>
+                <span class="detail-nakshatra">{{ nakshatraName(member.nakshatraId) }}</span>
               }
               @if (member.gothram) {
-                <span>Gothram: {{ member.gothram }}</span>
+                <span class="detail-gothram">Gothram: {{ member.gothram }}</span>
               }
             </div>
           </div>
-          <button
-            type="button"
-            class="icon-button danger-text"
-            aria-label="Delete family member"
-            (click)="remove('family_members', member.id, member.name)"
-          >
-            <app-icon name="trash" />
-          </button>
+          <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit family member"
+              (click)="editMember(member)"
+            >
+              <app-icon name="edit" />
+            </button>
+            <button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete family member"
+              (click)="remove('family_members', member.id, member.name)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
         </article>
       } @empty {
         <div class="empty-state card">
@@ -94,6 +108,14 @@
             </div>
           </div>
           <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit hospital record"
+              (click)="editHospital(record)"
+            >
+              <app-icon name="edit" />
+            </button>
             @if (record.opNumber) {
               <button
                 type="button"
@@ -145,14 +167,24 @@
               }
             </div>
           </div>
-          <button
-            type="button"
-            class="icon-button danger-text"
-            aria-label="Delete insurance record"
-            (click)="remove('medical_insurance', record.id, record.providerName)"
-          >
-            <app-icon name="trash" />
-          </button>
+          <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit insurance record"
+              (click)="editInsurance(record)"
+            >
+              <app-icon name="edit" />
+            </button>
+            <button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete insurance record"
+              (click)="remove('medical_insurance', record.id, record.providerName)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
         </article>
       } @empty {
         <div class="empty-state card">
@@ -187,14 +219,24 @@
               }
             </div>
           </div>
-          <button
-            type="button"
-            class="icon-button danger-text"
-            aria-label="Delete important item"
-            (click)="remove('important_items', item.id, item.name)"
-          >
-            <app-icon name="trash" />
-          </button>
+          <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit important item"
+              (click)="editImportantItem(item)"
+            >
+              <app-icon name="edit" />
+            </button>
+            <button
+              type="button"
+              class="icon-button danger-text"
+              aria-label="Delete important item"
+              (click)="remove('important_items', item.id, item.name)"
+            >
+              <app-icon name="trash" />
+            </button>
+          </div>
         </article>
       } @empty {
         <div class="empty-state card">
@@ -213,11 +255,19 @@
             <p>
               {{ bloodLabel(record) }}
               @if (record.lastVerifiedDate) {
-                · Verified {{ record.lastVerifiedDate }}
+                · Verified {{ record.lastVerifiedDate | date: 'MMM-dd-yyyy' : 'UTC' }}
               }
             </p>
           </div>
           <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="Edit blood group record"
+              (click)="editBloodGroup(record)"
+            >
+              <app-icon name="edit" />
+            </button>
             <button
               type="button"
               class="icon-button"
@@ -256,7 +306,10 @@
   ></button>
   <section class="editor">
     <header>
-      <h2>Add {{ tabs.find((tab) => tab.id === activeTab())?.label }}</h2>
+      <h2>
+        {{ editingRecord() ? 'Edit' : 'Add' }}
+        {{ tabs.find((tab) => tab.id === activeTab())?.label }}
+      </h2>
       <button type="button" class="icon-button" aria-label="Close" (click)="close()">
         <app-icon name="close" />
       </button>
@@ -268,7 +321,31 @@
           ><label>Relationship *<input formControlName="relationship" /></label
           ><label>Date of birth<input type="date" formControlName="dateOfBirth" /></label
           ><label>Gender (optional)<input formControlName="gender" /></label
-          ><label>Phone<input type="tel" formControlName="phone" /></label
+          ><label
+            >Phone<input
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              pattern="[0-9+ -]*"
+              formControlName="phone"
+              [attr.aria-describedby]="
+                memberForm.controls.phone.touched && memberForm.controls.phone.invalid
+                  ? 'family-phone-error'
+                  : null
+              "
+              [attr.aria-invalid]="
+                memberForm.controls.phone.touched && memberForm.controls.phone.invalid
+              "
+              (input)="sanitizeContactInput($event, memberForm.controls.phone)"
+            />
+            @if (
+              memberForm.controls.phone.touched &&
+              memberForm.controls.phone.hasError('contactNumber')
+            ) {
+              <small id="family-phone-error" class="field-error" role="alert">
+                Use only digits, spaces, + and -.
+              </small>
+            }</label
           ><label
             >Blood group<app-select-picker
               formControlName="bloodGroup"
@@ -298,7 +375,9 @@
             ><input type="checkbox" formControlName="important" /> Important</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save family member</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update family member' : 'Save family member' }}
+            </button>
           </div>
         </form>
       }
@@ -308,8 +387,28 @@
           ><label>Branch<input formControlName="branch" /></label
           ><label
             >Contact numbers *<input
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              pattern="[0-9+, -]*"
               formControlName="contacts"
-              placeholder="Comma separated" /></label
+              placeholder="Comma separated"
+              [attr.aria-describedby]="
+                hospitalForm.controls.contacts.touched && hospitalForm.controls.contacts.invalid
+                  ? 'hospital-contacts-help hospital-contacts-error'
+                  : 'hospital-contacts-help'
+              "
+              [attr.aria-invalid]="
+                hospitalForm.controls.contacts.touched && hospitalForm.controls.contacts.invalid
+              "
+              (input)="sanitizeContactInput($event, hospitalForm.controls.contacts, true)"
+            />
+            <small id="hospital-contacts-help">Separate multiple numbers with commas.</small>
+            @if (hospitalForm.controls.contacts.touched && hospitalForm.controls.contacts.invalid) {
+              <small id="hospital-contacts-error" class="field-error" role="alert">
+                Enter at least one number using only digits, spaces, + and -.
+              </small>
+            }</label
           ><label>Patient name *<input formControlName="patientName" /></label
           ><label
             >Link family member<app-select-picker
@@ -326,7 +425,9 @@
             ><input type="checkbox" formControlName="important" /> Important</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save OP record</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update OP record' : 'Save OP record' }}
+            </button>
           </div>
         </form>
       }
@@ -341,18 +442,54 @@
             <app-token-input
               formControlName="contacts"
               ariaLabel="Insurance contact numbers"
+              inputMode="tel"
+              contactCharactersOnly
+              [ariaDescribedBy]="
+                insuranceForm.controls.contacts.touched && insuranceForm.controls.contacts.invalid
+                  ? 'insurance-contact-help insurance-contact-error'
+                  : 'insurance-contact-help'
+              "
+              [invalid]="
+                insuranceForm.controls.contacts.touched && insuranceForm.controls.contacts.invalid
+              "
               placeholder="Type a number, then comma"
             />
-            <small>Press comma or Enter to add each number.</small>
+            <small id="insurance-contact-help"> Press comma or Enter to add each number. </small>
+            @if (
+              insuranceForm.controls.contacts.touched &&
+              insuranceForm.controls.contacts.hasError('invalidContacts')
+            ) {
+              <small id="insurance-contact-error" class="field-error" role="alert">
+                Use only digits, spaces, + and - in every contact pill.
+              </small>
+            }
           </div>
           <div class="form-field">
             <span>Email addresses</span>
             <app-token-input
               formControlName="emails"
               ariaLabel="Insurance email addresses"
+              inputMode="email"
+              tokenType="email"
+              [ariaDescribedBy]="
+                insuranceForm.controls.emails.touched && insuranceForm.controls.emails.invalid
+                  ? 'insurance-email-help insurance-email-error'
+                  : 'insurance-email-help'
+              "
+              [invalid]="
+                insuranceForm.controls.emails.touched && insuranceForm.controls.emails.invalid
+              "
               placeholder="Type an email, then comma"
             />
-            <small>Press comma or Enter to add each email.</small>
+            <small id="insurance-email-help">Press comma or Enter to add each email.</small>
+            @if (
+              insuranceForm.controls.emails.touched &&
+              insuranceForm.controls.emails.hasError('invalidEmails')
+            ) {
+              <small id="insurance-email-error" class="field-error" role="alert">
+                Enter a valid email address for every email pill.
+              </small>
+            }
           </div>
           <label>Website<input type="url" formControlName="website" /></label
           ><label>Start date<input type="date" formControlName="startDate" /></label
@@ -362,7 +499,9 @@
             ><input type="checkbox" formControlName="important" /> Important</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save insurance</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update insurance' : 'Save insurance' }}
+            </button>
           </div>
         </form>
       }
@@ -391,7 +530,9 @@
             ><input type="checkbox" formControlName="favourite" /> Favourite</label
           >
           <div class="form-actions wide">
-            <button class="button" type="submit">Save reference</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update reference' : 'Save reference' }}
+            </button>
           </div>
         </form>
       }
@@ -416,7 +557,9 @@
           ><label>Source of information<input formControlName="source" /></label
           ><label class="wide">Notes<textarea formControlName="notes"></textarea></label>
           <div class="form-actions wide">
-            <button class="button" type="submit">Save blood group</button>
+            <button class="button" type="submit">
+              {{ editingRecord() ? 'Update blood group' : 'Save blood group' }}
+            </button>
           </div>
         </form>
       }

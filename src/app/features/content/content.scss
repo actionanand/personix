@@ -404,7 +404,14 @@
   opacity: 0.48;
 }
 .page-control {
-  padding-inline: 0.85rem;
+  width: 2.55rem;
+  height: 2.55rem;
+  padding: 0;
+  line-height: 0;
+}
+.page-control app-icon {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 .page-ellipsis {
   display: grid;
@@ -572,25 +579,5 @@
   }
   .metadata-fields .wide {
     grid-column: 1;
-  }
-  .page-control {
-    font-size: 0;
-    padding-inline: 0.55rem;
-  }
-  .first-page::after {
-    content: '«';
-  }
-  .previous-page::after {
-    content: '‹';
-  }
-  .next-page::after {
-    content: '›';
-  }
-  .last-page::after {
-    content: '»';
-  }
-  .page-control::after {
-    font-size: 1.2rem;
-    line-height: 1;
   }
 }

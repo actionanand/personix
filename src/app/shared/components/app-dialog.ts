@@ -84,8 +84,9 @@ export class AppDialog {
 
   constructor() {
     effect(() => {
-      if (!this.dialogs.active()) return;
-      this.value.set('');
+      const dialog = this.dialogs.active();
+      if (!dialog) return;
+      this.value.set(dialog.promptValue);
       this.checked.set(false);
       window.setTimeout(() => this.input()?.nativeElement.focus(), 0);
     });

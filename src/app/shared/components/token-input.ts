@@ -1,4 +1,5 @@
 import {
+  booleanAttribute,
   Component,
   computed,
   ElementRef,
@@ -8,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { isValidEmailAddress } from '../validators/comma-separated-emails.validator';
 import { AppIcon } from './app-icon';
 
 let nextTokenInputId = 0;
@@ -20,7 +22,11 @@ let nextTokenInputId = 0;
   ],
   template: `
     <div class="token-shell">
-      <div class="token-field" [class.disabled]="disabled()">
+      <div
+        class="token-field"
+        [class.disabled]="disabled()"
+        [class.invalid]="invalid() || rejectionMessage()"
+      >
         @for (token of tokens(); track token; let index = $index) {
           <span class="token-pill">
             <span>{{ token }}</span>
@@ -40,9 +46,12 @@ let nextTokenInputId = 0;
           autocomplete="off"
           role="combobox"
           aria-autocomplete="list"
+          [attr.inputmode]="inputMode()"
           [value]="draft()"
           [placeholder]="tokens().length ? '' : placeholder()"
           [attr.aria-label]="ariaLabel()"
+          [attr.aria-describedby]="inputDescriptionIds()"
+          [attr.aria-invalid]="invalid() || !!rejectionMessage()"
           [attr.aria-controls]="listboxId"
           [attr.aria-expanded]="filteredSuggestions().length > 0"
           [attr.aria-activedescendant]="activeSuggestionId()"
@@ -53,6 +62,11 @@ let nextTokenInputId = 0;
           (blur)="commitAndTouch()"
         />
       </div>
+      @if (rejectionMessage()) {
+        <small class="token-rejection" [id]="rejectionId" role="alert">
+          {{ rejectionMessage() }}
+        </small>
+      }
       @if (filteredSuggestions().length) {
         <div
           class="suggestion-list"
@@ -102,9 +116,22 @@ let nextTokenInputId = 0;
       border-color: var(--primary);
       outline: 3px solid color-mix(in srgb, var(--primary) 28%, transparent);
     }
+    .token-field.invalid {
+      border-color: var(--danger);
+    }
+    .token-field.invalid:focus-within {
+      outline-color: color-mix(in srgb, var(--danger) 28%, transparent);
+    }
     .token-field.disabled {
       cursor: not-allowed;
       opacity: 0.65;
+    }
+    .token-rejection {
+      display: block;
+      margin-top: 0.35rem;
+      color: var(--danger);
+      font-size: 0.7rem;
+      font-weight: 600;
     }
     .token-pill {
       display: inline-flex;
@@ -193,13 +220,25 @@ let nextTokenInputId = 0;
 export class TokenInput implements ControlValueAccessor {
   readonly placeholder = input('Type and press comma');
   readonly ariaLabel = input('Add values');
+  readonly ariaDescribedBy = input<string>();
+  readonly invalid = input(false, { transform: booleanAttribute });
+  readonly inputMode = input<'text' | 'tel' | 'email'>('text');
+  readonly tokenType = input<'text' | 'email'>('text');
+  readonly contactCharactersOnly = input(false, { transform: booleanAttribute });
   readonly suggestions = input<readonly string[]>([]);
   readonly tokens = signal<readonly string[]>([]);
   readonly draft = signal('');
   readonly disabled = signal(false);
   readonly suggestionsVisible = signal(false);
   readonly activeSuggestionIndex = signal(-1);
+  readonly rejectionMessage = signal('');
   readonly listboxId = `token-suggestions-${nextTokenInputId++}`;
+  readonly rejectionId = `${this.listboxId}-error`;
+  readonly inputDescriptionIds = computed(() =>
+    [this.ariaDescribedBy(), this.rejectionMessage() ? this.rejectionId : '']
+      .filter(Boolean)
+      .join(' '),
+  );
   readonly filteredSuggestions = computed(() => {
     const query = this.draft().trim().toLocaleLowerCase();
     if (!this.suggestionsVisible() || !query) return [];
@@ -229,6 +268,7 @@ export class TokenInput implements ControlValueAccessor {
   writeValue(value: string | null | undefined): void {
     this.tokens.set(this.parse(value ?? ''));
     this.draft.set('');
+    this.rejectionMessage.set('');
     this.closeSuggestions();
   }
 
@@ -253,8 +293,12 @@ export class TokenInput implements ControlValueAccessor {
   }
 
   updateDraft(event: Event): void {
+    this.rejectionMessage.set('');
     const inputElement = event.target as HTMLInputElement;
-    const value = inputElement.value;
+    const value = this.contactCharactersOnly()
+      ? inputElement.value.replace(/[^\d+\-, ]/g, '')
+      : inputElement.value;
+    if (value !== inputElement.value) inputElement.value = value;
     if (!value.includes(',')) {
       this.draft.set(value);
       this.suggestionsVisible.set(true);
@@ -293,6 +337,10 @@ export class TokenInput implements ControlValueAccessor {
       event.preventDefault();
       const selected = suggestions[this.activeSuggestionIndex()];
       if (selected) this.chooseSuggestion(selected);
+      return;
+    }
+    if (this.contactCharactersOnly() && event.key.length === 1 && !/[\d+\-, ]/.test(event.key)) {
+      event.preventDefault();
       return;
     }
     if (event.key === ',' || event.key === 'Enter') {
@@ -344,10 +392,18 @@ export class TokenInput implements ControlValueAccessor {
   private add(values: readonly string[]): void {
     const candidates = values.map((value) => value.trim()).filter(Boolean);
     if (!candidates.length) return;
+    const acceptedCandidates =
+      this.tokenType() === 'email'
+        ? candidates.filter((candidate) => isValidEmailAddress(candidate))
+        : candidates;
+    if (acceptedCandidates.length !== candidates.length) {
+      this.rejectionMessage.set('Enter a valid email address. The invalid value was removed.');
+    }
+    if (!acceptedCandidates.length) return;
     this.tokens.update((tokens) => {
       const next = [...tokens];
       const normalized = new Set(next.map((token) => token.toLocaleLowerCase()));
-      for (const candidate of candidates) {
+      for (const candidate of acceptedCandidates) {
         const key = candidate.toLocaleLowerCase();
         if (normalized.has(key)) continue;
         normalized.add(key);

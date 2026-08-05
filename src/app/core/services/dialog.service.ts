@@ -12,6 +12,7 @@ export interface DialogRequest {
   readonly typedConfirmation: string;
   readonly promptLabel: string;
   readonly promptType: 'text' | 'password';
+  readonly promptValue: string;
 }
 
 export interface DialogResult {
@@ -44,6 +45,7 @@ export class DialogService {
         typedConfirmation: request.typedConfirmation ?? '',
         promptLabel: request.promptLabel ?? '',
         promptType: request.promptType ?? 'text',
+        promptValue: request.promptValue ?? '',
         resolve,
       }),
     );
