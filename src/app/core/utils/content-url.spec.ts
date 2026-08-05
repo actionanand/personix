@@ -90,4 +90,67 @@ describe('content URL utilities', () => {
     });
     expect(embed).toContain(encodeURIComponent('https://www.facebook.com/reel/1821110698482978'));
   });
+
+  it('detects and embeds PeerTube short and UUID watch URLs on any instance', () => {
+    const short = detectContentUrl('https://peertube.tv/w/mLgWSkFuNyMkGiyw9d3zLP');
+    expect(short).toMatchObject({
+      contentType: 'peertube',
+      platform: 'PeerTube',
+      mediaId: 'mLgWSkFuNyMkGiyw9d3zLP',
+    });
+    expect(
+      buildEmbedUrl({
+        contentType: short.contentType,
+        url: short.canonicalUrl,
+        resolvedUrl: '',
+        mediaId: short.mediaId,
+        startTimeSeconds: 0,
+      }),
+    ).toContain('https://peertube.tv/videos/embed/mLgWSkFuNyMkGiyw9d3zLP');
+
+    expect(
+      detectContentUrl('https://framatube.org/videos/watch/9db9f3f1-9b54-44ed-9e91-461d262d2205')
+        .contentType,
+    ).toBe('peertube');
+  });
+
+  it('supports Twitch VOD, clip and channel embed URLs with the required parent', () => {
+    const vod = detectContentUrl('https://www.twitch.tv/videos/40464143?t=1m30s');
+    const vodEmbed = new URL(
+      buildEmbedUrl({
+        contentType: vod.contentType,
+        url: vod.canonicalUrl,
+        resolvedUrl: '',
+        mediaId: vod.mediaId,
+        startTimeSeconds: vod.startTimeSeconds,
+      }),
+    );
+    expect(vod.mediaId).toBe('video:40464143');
+    expect(vodEmbed.searchParams.get('video')).toBe('v40464143');
+    expect(vodEmbed.searchParams.get('parent')).toBe(window.location.hostname || 'localhost');
+    expect(vodEmbed.searchParams.get('time')).toBe('0h1m30s');
+
+    expect(detectContentUrl('https://clips.twitch.tv/ExampleClip').mediaId).toBe(
+      'clip:ExampleClip',
+    );
+    expect(detectContentUrl('https://www.twitch.tv/twitchdev').mediaId).toBe('channel:twitchdev');
+  });
+
+  it('supports public Wistia media URLs with the official fallback iframe', () => {
+    const detected = detectContentUrl('https://supportvideos.wistia.com/medias/gmwg9g412y');
+    expect(detected).toMatchObject({
+      contentType: 'wistia',
+      platform: 'Wistia',
+      mediaId: 'gmwg9g412y',
+    });
+    expect(
+      buildEmbedUrl({
+        contentType: detected.contentType,
+        url: detected.canonicalUrl,
+        resolvedUrl: '',
+        mediaId: detected.mediaId,
+        startTimeSeconds: 0,
+      }),
+    ).toContain('https://fast.wistia.net/embed/iframe/gmwg9g412y');
+  });
 });

@@ -14,6 +14,9 @@ export type ContentType =
   | 'tiktok-share'
   | 'dailymotion'
   | 'vimeo'
+  | 'peertube'
+  | 'twitch'
+  | 'wistia'
   | 'generic-video'
   | 'post'
   | 'article'
@@ -370,6 +373,9 @@ export const CONTENT_TYPES: readonly { readonly value: ContentType; readonly lab
   { value: 'tiktok-share', label: 'TikTok shared video' },
   { value: 'dailymotion', label: 'Dailymotion' },
   { value: 'vimeo', label: 'Vimeo' },
+  { value: 'peertube', label: 'PeerTube' },
+  { value: 'twitch', label: 'Twitch' },
+  { value: 'wistia', label: 'Wistia' },
   { value: 'generic-video', label: 'Generic video' },
   { value: 'post', label: 'Post' },
   { value: 'article', label: 'Article' },
@@ -388,6 +394,9 @@ export const VIDEO_CONTENT_TYPES: readonly ContentType[] = [
   'tiktok-share',
   'dailymotion',
   'vimeo',
+  'peertube',
+  'twitch',
+  'wistia',
   'generic-video',
 ];
 

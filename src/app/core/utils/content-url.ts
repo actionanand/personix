@@ -86,6 +86,20 @@ export function detectContentUrl(raw: string): ContentDetection {
   }
   if (host.endsWith('vimeo.com'))
     return result('vimeo', 'Vimeo', canonicalUrl, [...path.matchAll(/\/(\d+)/g)].at(-1)?.[1] ?? '');
+  const peerTubeId = extractPeerTubeVideoId(url);
+  if (peerTubeId) return result('peertube', 'PeerTube', canonicalUrl, peerTubeId, sharedStart(url));
+  if (host === 'twitch.tv' || host.endsWith('.twitch.tv')) {
+    const twitchMedia = extractTwitchMedia(url);
+    return twitchMedia
+      ? result('twitch', 'Twitch', canonicalUrl, twitchMedia, sharedStart(url))
+      : result('website', 'Twitch', canonicalUrl);
+  }
+  if (host.endsWith('wistia.com') || host.endsWith('wistia.net')) {
+    const wistiaId = extractWistiaMediaId(url);
+    return wistiaId
+      ? result('wistia', 'Wistia', canonicalUrl, wistiaId)
+      : result('website', 'Wistia', canonicalUrl);
+  }
   if (/\.(mp4|webm|m3u8|mov)(?:$|\?)/i.test(canonicalUrl))
     return result('generic-video', host, canonicalUrl);
   if (
@@ -154,6 +168,23 @@ export function buildEmbedUrl(
       return id
         ? `https://player.vimeo.com/video/${id}?autoplay=0&dnt=1&muted=${muted ? 1 : 0}`
         : '';
+    case 'peertube': {
+      if (!id) return '';
+      const peerTubeUrl = new URL(source);
+      peerTubeUrl.pathname = `/videos/embed/${id}`;
+      peerTubeUrl.search = '';
+      peerTubeUrl.hash = '';
+      peerTubeUrl.searchParams.set('autoplay', autoplay ? '1' : '0');
+      peerTubeUrl.searchParams.set('muted', muted ? '1' : '0');
+      if (start) peerTubeUrl.searchParams.set('start', String(start));
+      return peerTubeUrl.href;
+    }
+    case 'twitch':
+      return buildTwitchEmbedUrl(id, muted, autoplay, start);
+    case 'wistia':
+      return id
+        ? `https://fast.wistia.net/embed/iframe/${id}?web_component=true&seo=true&videoFoam=true`
+        : '';
     case 'generic-video':
       return source;
     default:
@@ -200,6 +231,73 @@ export function extractTikTokVideoId(raw: string): string | null {
   }
 }
 
+function extractPeerTubeVideoId(url: URL): string | null {
+  const short = url.pathname.match(/^\/w\/([a-z0-9]{22})(?:\/|$)/i)?.[1];
+  if (short) return short;
+  return url.pathname.match(/^\/videos\/(?:watch|embed)\/([a-z0-9-]+)(?:\/|$)/i)?.[1] ?? null;
+}
+
+function extractTwitchMedia(url: URL): string | null {
+  const host = url.hostname.toLocaleLowerCase().replace(/^www\./, '');
+  if (host === 'clips.twitch.tv') {
+    const clip = url.pathname.split('/').filter(Boolean)[0];
+    return clip ? `clip:${clip}` : null;
+  }
+  const clip = url.pathname.match(/^\/[^/]+\/clip\/([^/?#]+)/i)?.[1];
+  if (clip) return `clip:${clip}`;
+  const video = url.pathname.match(/^\/videos\/(\d+)/i)?.[1];
+  if (video) return `video:${video}`;
+  const segments = url.pathname.split('/').filter(Boolean);
+  const channel = segments.length === 1 ? segments[0] : '';
+  return channel && !TWITCH_RESERVED_PATHS.has(channel.toLocaleLowerCase())
+    ? `channel:${channel}`
+    : null;
+}
+
+function buildTwitchEmbedUrl(
+  media: string,
+  muted: boolean,
+  autoplay: boolean,
+  start: number,
+): string {
+  const separator = media.indexOf(':');
+  if (separator < 1) return '';
+  const kind = media.slice(0, separator);
+  const value = media.slice(separator + 1);
+  if (!value) return '';
+  const parent =
+    typeof window === 'undefined' ? 'localhost' : window.location.hostname || 'localhost';
+  const embed = new URL(
+    kind === 'clip' ? 'https://clips.twitch.tv/embed' : 'https://player.twitch.tv/',
+  );
+  embed.searchParams.set(kind, kind === 'video' ? `v${value}` : value);
+  embed.searchParams.set('parent', parent);
+  embed.searchParams.set('autoplay', autoplay ? 'true' : 'false');
+  embed.searchParams.set('muted', muted ? 'true' : 'false');
+  if (kind === 'video' && start) embed.searchParams.set('time', secondsToTwitchTime(start));
+  return embed.href;
+}
+
+function extractWistiaMediaId(url: URL): string | null {
+  return (
+    url.pathname.match(/\/medias\/([a-z0-9]+)(?:\/|$)/i)?.[1] ??
+    url.pathname.match(/\/embed\/(?:iframe|medias)\/([a-z0-9]+)(?:\/|$)/i)?.[1] ??
+    null
+  );
+}
+
+const TWITCH_RESERVED_PATHS = new Set([
+  'directory',
+  'downloads',
+  'jobs',
+  'p',
+  'search',
+  'settings',
+  'subscriptions',
+  'turbo',
+  'wallet',
+]);
+
 function youtubeStart(url: URL): number {
   const raw = url.searchParams.get('t') ?? url.searchParams.get('start') ?? '';
   if (/^\d+$/.test(raw)) return Number(raw);
@@ -207,6 +305,22 @@ function youtubeStart(url: URL): number {
   return match
     ? Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0)
     : 0;
+}
+
+function sharedStart(url: URL): number {
+  const raw = url.searchParams.get('t') ?? url.searchParams.get('start') ?? '';
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+  return match
+    ? Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0)
+    : 0;
+}
+
+function secondsToTwitchTime(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}h${minutes}m${seconds}s`;
 }
 
 function ensureUrl(raw: string): string {
