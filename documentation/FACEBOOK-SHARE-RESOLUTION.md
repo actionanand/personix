@@ -36,16 +36,30 @@ network resolution is needed when the item is later opened.
 1. On save, `detectContentUrl` classifies the link (for example `facebook-share`
    or `tiktok-share`) and attempts a local id extraction.
 2. If the numeric id is already known (a canonical URL, or a code present in the
-   offline `FACEBOOK_SHARE_ID_OVERRIDES` map), no network call is made.
+   offline `FACEBOOK_SHARE_ID_OVERRIDES` map), the redirect is skipped, but the
+   resolver still runs once when the aspect ratio has not been captured yet.
 3. Otherwise `Content.resolveShareUrl` calls `MetadataService.resolveShareUrl`,
-   which follows the redirect to the canonical URL and extracts the id.
+   which follows the redirect to the canonical URL, extracts the id, and reads the
+   poster dimensions to compute the video aspect ratio.
 4. The item is saved with:
    - `url` — the **original share URL**, kept unchanged for reference.
    - `resolvedUrl` — the canonical `https://www.facebook.com/reel/{id}` URL.
    - `mediaId` — the extracted numeric id.
+   - `aspectRatio` — the video's width/height, used to size the player frame.
 5. When the card is displayed, `buildEmbedUrl` normalizes the source through
    `buildFacebookVideoUrl`, so the embed always uses the canonical reel URL. This
    step is pure and performs no network request.
+
+## Adaptive player size
+
+Facebook videos (including reels) come in different aspect ratios — portrait,
+square, and landscape — so a fixed frame letterboxes or crops many of them. The
+preview therefore sizes each player from the stored `aspectRatio`, falling back to
+a content-type default (9:16 for known-vertical types, otherwise 16:9) until the
+real ratio is known. The aspect ratio is captured once, at resolution time, from
+the poster dimensions returned by the resolver, so display stays free of network
+calls. On Android the native bridge does not yet report dimensions, so those items
+use the default frame until dimensions are available.
 
 Existing items saved before resolution are repaired the next time they are edited
 and re-saved, or when the per-item "refresh metadata" action is used.

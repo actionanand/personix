@@ -62,7 +62,7 @@ interface PipResizeState extends PipSize {
         [attr.aria-label]="label()"
       ></video>
     } @else if (safeEmbedUrl()) {
-      <div class="embed-frame" [class.vertical]="vertical()">
+      <div class="embed-frame" [class.vertical]="vertical()" [style.aspect-ratio]="aspectRatio()">
         <iframe
           [src]="safeEmbedUrl()"
           [title]="label()"
@@ -329,7 +329,13 @@ export class ContentPreview {
   protected readonly label = computed(
     () => this.item().title || this.item().ogTitle || `${this.item().platform} preview`,
   );
-  protected readonly vertical = computed(() => isVerticalContent(this.item().contentType));
+  // Real video aspect ratio when known, otherwise a content-type default.
+  protected readonly aspectRatio = computed(() => {
+    const stored = this.item().aspectRatio;
+    if (stored && stored > 0 && Number.isFinite(stored)) return stored;
+    return isVerticalContent(this.item().contentType) ? 9 / 16 : 16 / 9;
+  });
+  protected readonly vertical = computed(() => this.aspectRatio() < 1);
   protected readonly videoContent = computed(() => isVideoContentType(this.item().contentType));
   protected readonly videoUrl = computed(() =>
     this.item().contentType === 'generic-video' ? this.item().resolvedUrl || this.item().url : '',

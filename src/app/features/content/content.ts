@@ -360,14 +360,24 @@ export class Content {
       item.contentType === 'facebook-share'
         ? extractFacebookVideoId(source)
         : extractTikTokVideoId(source);
-    if (existingId) return item;
-    const resolved = await this.metadata.resolveShareUrl(item.url, this.store.settings());
-    if (!resolved) return item;
-    const detected = this.repository.detectContent(resolved);
-    if (!detected.mediaId) return item;
+    if (existingId && item.aspectRatio) return item;
+    const resolution = await this.metadata.resolveShareUrl(item.url, this.store.settings());
+    if (!resolution) return item;
+    const detected = this.repository.detectContent(resolution.url);
+    const mediaId = existingId ?? detected.mediaId;
+    if (!mediaId) return item;
     const resolvedUrl =
-      item.contentType === 'facebook-share' ? buildFacebookVideoUrl(resolved) : resolved;
-    return this.repository.save({ ...item, resolvedUrl, mediaId: detected.mediaId });
+      item.resolvedUrl && existingId
+        ? item.resolvedUrl
+        : item.contentType === 'facebook-share'
+          ? buildFacebookVideoUrl(resolution.url)
+          : resolution.url;
+    return this.repository.save({
+      ...item,
+      resolvedUrl,
+      mediaId,
+      aspectRatio: resolution.aspectRatio ?? item.aspectRatio,
+    });
   }
 
   protected async refreshMetadata(item: SavedContent): Promise<void> {

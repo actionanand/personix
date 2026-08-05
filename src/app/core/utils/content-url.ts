@@ -162,14 +162,10 @@ export function buildEmbedUrl(
 }
 
 export function isVerticalContent(type: ContentType): boolean {
-  return [
-    'youtube-short',
-    'instagram',
-    'facebook-reel',
-    'facebook-share',
-    'tiktok',
-    'tiktok-share',
-  ].includes(type);
+  // Facebook videos are intentionally excluded: Facebook reels can be either
+  // portrait or landscape, so they render in the standard 16:9 frame like
+  // YouTube rather than a forced 9:16 box that letterboxes landscape clips.
+  return ['youtube-short', 'instagram', 'tiktok', 'tiktok-share'].includes(type);
 }
 
 export function isEmbeddableContent(type: ContentType): boolean {
