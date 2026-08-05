@@ -295,22 +295,24 @@
           placeholder="What is this about?"
         ></textarea>
       </label>
-      <label class="wide"
-        >Tags<input formControlName="tags" placeholder="recipes, weekend" /><small
-          >Separate multiple tags with commas</small
-        ></label
-      >
-      <label class="wide"
-        >Who should receive this?<input
+      <div class="field wide">
+        <span class="field-label">Tags</span>
+        <app-token-input
+          formControlName="tags"
+          ariaLabel="Tags"
+          placeholder="Type a tag and press comma"
+        />
+        <small>Press comma or Enter to add a tag.</small>
+      </div>
+      <div class="field wide">
+        <span class="field-label">Who should receive this?</span>
+        <app-token-input
           formControlName="recipients"
-          list="content-recipient-options"
-          placeholder="Wife, Brother, Office Team"
-        /><datalist id="content-recipient-options">
-          @for (recipient of recipients(); track recipient.id) {
-            <option [value]="recipient.name"></option>
-          }</datalist
-        ><small>Optional. Separate multiple recipients with commas.</small></label
-      >
+          ariaLabel="Who should receive this?"
+          placeholder="Type a name and press comma"
+        />
+        <small>Optional. Press comma or Enter to add a recipient.</small>
+      </div>
       <label class="wide"
         >Notes<textarea
           formControlName="notes"

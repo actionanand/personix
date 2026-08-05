@@ -270,15 +270,20 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
 }
-.editor label {
+.editor label,
+.editor .field {
   display: grid;
   gap: 0.4rem;
   font-size: 0.82rem;
   font-weight: 700;
 }
-.editor label small {
+.editor label small,
+.editor .field small {
   color: var(--muted);
   font-weight: 400;
+}
+.field-label {
+  color: var(--text);
 }
 .wide {
   grid-column: 1 / -1;

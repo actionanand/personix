@@ -23,6 +23,7 @@ import {
 } from '../../core/utils/content-url';
 import { AppIcon } from '../../shared/components/app-icon';
 import { SelectPicker, SelectPickerOption } from '../../shared/components/select-picker';
+import { TokenInput } from '../../shared/components/token-input';
 import { ContentPreview } from './content-preview';
 
 const DEFAULT_FILTERS: ContentFilters = {
@@ -44,7 +45,7 @@ const DEFAULT_FILTERS: ContentFilters = {
 
 @Component({
   selector: 'app-content',
-  imports: [ReactiveFormsModule, AppIcon, SelectPicker, ContentPreview],
+  imports: [ReactiveFormsModule, AppIcon, SelectPicker, TokenInput, ContentPreview],
   templateUrl: './content.html',
   styleUrl: './content.scss',
 })
