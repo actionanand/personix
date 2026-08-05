@@ -126,6 +126,7 @@ export class Search {
       favouriteOnly: false,
       consumed: 'all' as const,
       adultOnly: false,
+      excludeAdult: false,
       dateFrom: '',
       dateTo: '',
       sort: 'recent' as const,

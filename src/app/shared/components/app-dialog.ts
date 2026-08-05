@@ -62,7 +62,10 @@ import { AppIcon } from './app-icon';
             type="button"
             class="button"
             [class.danger]="dialog.destructive"
-            [disabled]="dialog.typedConfirmation && value() !== dialog.typedConfirmation"
+            [disabled]="
+              (dialog.typedConfirmation && value() !== dialog.typedConfirmation) ||
+              (dialog.requireCheckbox && !checked())
+            "
             (click)="confirm()"
           >
             {{ dialog.confirmText }}

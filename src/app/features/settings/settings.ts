@@ -153,6 +153,7 @@ export class Settings {
         'Saved URLs will be sent to api.microlink.io to retrieve titles, descriptions and images. Personix will never do this unless you enable it.',
       confirmText: 'I understand, enable',
       checkboxLabel: 'I understand saved URLs will leave this device',
+      requireCheckbox: true,
       icon: 'globe',
     });
     if (!result.confirmed || !result.checked) {

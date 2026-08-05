@@ -11,6 +11,8 @@ export function defaultSettings(): AppSettings {
     createdAt: timestamp,
     updatedAt: timestamp,
     theme: 'automatic',
+    openPostsInApp: true,
+    muteVideosByDefault: false,
     showAdultContent: false,
     androidMetadataEnabled: true,
     browserMetadataEnabled: false,

@@ -226,6 +226,8 @@ const tables = {
     {
       ...base('personix-settings'),
       theme: 'automatic',
+      openPostsInApp: true,
+      muteVideosByDefault: false,
       showAdultContent: false,
       androidMetadataEnabled: true,
       browserMetadataEnabled: false,

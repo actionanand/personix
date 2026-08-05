@@ -14,7 +14,27 @@
   border-radius: 0.75rem;
   color: var(--text);
   background: var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 3%, transparent);
+  font: inherit;
+  font-weight: 700;
   text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.picker-trigger:hover {
+  border-color: var(--primary);
+}
+.picker-trigger:focus-visible {
+  border-color: var(--primary);
+  outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-offset: 1px;
+}
+.picker-trigger app-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--primary);
 }
 .picker-trigger span {
   overflow: hidden;
@@ -51,7 +71,13 @@
   border-bottom: 0;
   border-radius: 1.4rem 1.4rem 0 0;
   color: var(--text);
-  background: var(--surface);
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      color-mix(in srgb, var(--primary-soft) 72%, transparent),
+      transparent 35%
+    ),
+    var(--surface);
   box-shadow: 0 -1rem 4rem rgba(0, 0, 0, 0.32);
 }
 .picker-sheet header {
@@ -87,11 +113,21 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0.75rem;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 0.85rem;
   color: var(--text);
   background: transparent;
   text-align: left;
+  cursor: pointer;
+}
+.picker-option:hover {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+.picker-option:focus-visible {
+  border-color: var(--primary);
+  outline: 2px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-offset: -2px;
 }
 .picker-option.selected {
   color: var(--primary);
@@ -123,5 +159,16 @@
   .picker-sheet {
     border: 1px solid var(--border);
     border-radius: 1.4rem;
+  }
+  .picker-sheet.many-options {
+    width: min(100%, 46rem);
+  }
+  .picker-sheet.many-options > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+  .picker-option {
+    min-height: 3.25rem;
   }
 }

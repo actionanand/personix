@@ -1,7 +1,15 @@
 .page-heading {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  margin-bottom: 0.45rem;
+}
+.page-heading > .button {
+  min-height: 2.9rem;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 0.65rem 1rem;
 }
 .eyebrow {
   margin: 0;
@@ -193,6 +201,7 @@
 @media (max-width: 38rem) {
   .page-heading {
     display: grid;
+    margin-bottom: 0.8rem;
   }
   .page-heading .button {
     width: 100%;

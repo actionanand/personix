@@ -7,6 +7,14 @@ const FACEBOOK_SHARE_ID_OVERRIDES: Record<string, string> = {
   '1HXy5sTsvb': '1646510169815130',
 };
 
+// Facebook does not expose the destination of a short /share/p/ link in the
+// URL itself. Keep confirmed mappings as an offline fallback; unknown links
+// are resolved through the native redirect handler (or the opted-in browser
+// metadata service) before they are stored.
+const FACEBOOK_SHARE_POST_ID_OVERRIDES: Record<string, string> = {
+  '1BeSAMZdzs': '1386376463681135',
+};
+
 export interface ContentDetection {
   readonly contentType: ContentType;
   readonly platform: string;
@@ -58,6 +66,15 @@ export function detectContentUrl(raw: string): ContentDetection {
         canonicalUrl,
         extractFacebookVideoId(canonicalUrl) ?? '',
       );
+    if (isFacebookPostShareUrl(canonicalUrl)) {
+      const mediaId = extractFacebookPostId(canonicalUrl) ?? '';
+      return result(
+        'facebook-post',
+        'Facebook',
+        mediaId ? buildFacebookPostUrl(canonicalUrl) : canonicalUrl,
+        mediaId,
+      );
+    }
     if (/\/(reel|watch|videos)\//i.test(path) || url.searchParams.has('v')) {
       return result(
         path.toLocaleLowerCase().includes('/reel/') ? 'facebook-reel' : 'facebook',
@@ -66,7 +83,8 @@ export function detectContentUrl(raw: string): ContentDetection {
         extractFacebookVideoId(canonicalUrl) ?? '',
       );
     }
-    return result('facebook-post', 'Facebook', canonicalUrl);
+    const mediaId = extractFacebookPostId(canonicalUrl) ?? '';
+    return result('facebook-post', 'Facebook', canonicalUrl, mediaId);
   }
   if (host.endsWith('tiktok.com')) {
     const id = extractTikTokVideoId(canonicalUrl) ?? '';
@@ -100,21 +118,53 @@ export function detectContentUrl(raw: string): ContentDetection {
       ? result('wistia', 'Wistia', canonicalUrl, wistiaId)
       : result('website', 'Wistia', canonicalUrl);
   }
+  if (isGoogleMapsUrl(canonicalUrl)) return result('google-maps', 'Google Maps', canonicalUrl);
   if (/\.(mp4|webm|m3u8|mov)(?:$|\?)/i.test(canonicalUrl))
     return result('generic-video', host, canonicalUrl);
-  if (
-    host.endsWith('reddit.com') ||
-    host === 'redd.it' ||
-    host.endsWith('threads.net') ||
-    host.endsWith('x.com') ||
-    host.endsWith('twitter.com')
-  )
-    return result('post', host.replace(/^www\./, ''), canonicalUrl);
+  if (host.endsWith('x.com') || host.endsWith('twitter.com')) {
+    const id = path.match(/^\/[^/]+\/status\/(\d+)/i)?.[1] ?? '';
+    return id
+      ? result('twitter-post', 'X / Twitter', canonicalUrl, id)
+      : result('website', 'X / Twitter', canonicalUrl);
+  }
+  if (host.endsWith('reddit.com') || host === 'redd.it') {
+    const id =
+      (host === 'redd.it' ? path.match(/^\/([^/?#]+)/)?.[1] : undefined) ??
+      path.match(/\/comments\/([a-z0-9]+)/i)?.[1] ??
+      '';
+    return id
+      ? result('reddit-post', 'Reddit', canonicalUrl, id)
+      : result('website', 'Reddit', canonicalUrl);
+  }
+  if (host.endsWith('threads.net') || host.endsWith('threads.com')) {
+    const id = path.match(/^\/@[^/]+\/post\/([^/?#]+)/i)?.[1] ?? '';
+    return id
+      ? result('threads-post', 'Threads', canonicalUrl, id)
+      : result('website', 'Threads', canonicalUrl);
+  }
+  if (host === 'bsky.app') {
+    const id = path.match(/^\/profile\/[^/]+\/post\/([^/?#]+)/i)?.[1] ?? '';
+    return id
+      ? result('bluesky-post', 'Bluesky', canonicalUrl, id)
+      : result('website', 'Bluesky', canonicalUrl);
+  }
+  if (host.endsWith('linkedin.com')) {
+    const id =
+      path.match(/urn:li:activity:(\d+)/i)?.[1] ??
+      path.match(/activity-(\d+)(?:-|\/|$)/i)?.[1] ??
+      '';
+    return id
+      ? result('linkedin-post', 'LinkedIn', canonicalUrl, id)
+      : result('website', 'LinkedIn', canonicalUrl);
+  }
+  const mastodonId = extractMastodonStatusId(url);
+  if (mastodonId) return result('mastodon-post', 'Mastodon', canonicalUrl, mastodonId);
   return result('website', host || 'Website', canonicalUrl);
 }
 
 export function buildEmbedUrl(
-  item: Pick<SavedContent, 'contentType' | 'url' | 'resolvedUrl' | 'mediaId' | 'startTimeSeconds'>,
+  item: Pick<SavedContent, 'contentType' | 'url' | 'resolvedUrl' | 'mediaId' | 'startTimeSeconds'> &
+    Partial<Pick<SavedContent, 'title' | 'ogTitle'>>,
   muted = false,
   autoplay = false,
 ): string {
@@ -142,7 +192,11 @@ export function buildEmbedUrl(
     case 'instagram':
     case 'instagram-post': {
       const match = new URL(source).pathname.match(/^\/(reel|reels|p|tv)\/([^/?#]+)/i);
-      return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed/` : '';
+      if (!match) return '';
+      const embed = new URL(`https://www.instagram.com/${match[1]}/${match[2]}/embed/`);
+      embed.searchParams.set('autoplay', autoplay ? '1' : '0');
+      embed.searchParams.set('muted', muted ? '1' : '0');
+      return embed.href;
     }
     case 'facebook-share': {
       // Group-shared videos fail in the video plugin unless the href points at
@@ -154,11 +208,25 @@ export function buildEmbedUrl(
     case 'facebook-reel':
       return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(source)}&show_text=false&mute=${muted ? 1 : 0}`;
     case 'facebook-post':
-      return `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(source)}&show_text=true&width=500`;
+      return `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(buildFacebookPostUrl(source))}&show_text=true&width=500`;
+    case 'twitter-post':
+      return id ? `https://platform.twitter.com/embed/Tweet.html?dnt=true&id=${id}` : '';
+    case 'reddit-post':
+      return buildRedditEmbedUrl(source, id);
+    case 'threads-post':
+      return buildThreadsEmbedUrl(source);
+    case 'mastodon-post':
+      return buildMastodonEmbedUrl(source);
+    case 'linkedin-post':
+      return id ? `https://www.linkedin.com/embed/feed/update/urn:li:activity:${id}` : '';
+    case 'google-maps':
+      return buildGoogleMapsEmbedUrl(source, item.title || item.ogTitle || '');
+    case 'post':
+      return buildLegacySocialPostEmbedUrl(detected, source);
     case 'tiktok':
     case 'tiktok-share':
       return id
-        ? `https://www.tiktok.com/player/v1/${id}?autoplay=0&controls=1&loop=0&music_info=0&rel=0&mute=${muted ? 1 : 0}`
+        ? `https://www.tiktok.com/player/v1/${id}?autoplay=${autoplay ? 1 : 0}&controls=1&loop=0&music_info=0&rel=0&muted=${muted ? 1 : 0}`
         : '';
     case 'dailymotion':
       return id
@@ -183,7 +251,7 @@ export function buildEmbedUrl(
       return buildTwitchEmbedUrl(id, muted, autoplay, start);
     case 'wistia':
       return id
-        ? `https://fast.wistia.net/embed/iframe/${id}?web_component=true&seo=true&videoFoam=true`
+        ? `https://fast.wistia.net/embed/iframe/${id}?web_component=true&seo=true&videoFoam=true&autoPlay=${autoplay ? 'true' : 'false'}&muted=${muted ? 'true' : 'false'}`
         : '';
     case 'generic-video':
       return source;
@@ -200,7 +268,63 @@ export function isVerticalContent(type: ContentType): boolean {
 }
 
 export function isEmbeddableContent(type: ContentType): boolean {
-  return isVideoContentType(type) || type === 'facebook-post' || type === 'instagram-post';
+  return (
+    isVideoContentType(type) ||
+    [
+      'facebook-post',
+      'instagram-post',
+      'twitter-post',
+      'reddit-post',
+      'threads-post',
+      'bluesky-post',
+      'mastodon-post',
+      'linkedin-post',
+      'google-maps',
+      'post',
+    ].includes(type)
+  );
+}
+
+export function isGoogleMapsUrl(raw: string): boolean {
+  try {
+    const url = new URL(ensureUrl(raw));
+    const host = url.hostname.toLocaleLowerCase().replace(/^www\./, '');
+    return (
+      host === 'maps.app.goo.gl' ||
+      host === 'maps.google.com' ||
+      ((host === 'google.com' || host.endsWith('.google.com')) &&
+        (url.pathname.startsWith('/maps') || url.searchParams.has('q')))
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isGoogleMapsShortUrl(raw: string): boolean {
+  try {
+    return new URL(ensureUrl(raw)).hostname.toLocaleLowerCase() === 'maps.app.goo.gl';
+  } catch {
+    return false;
+  }
+}
+
+function buildGoogleMapsEmbedUrl(source: string, placeName: string): string {
+  try {
+    const url = new URL(source);
+    if (url.hostname.toLocaleLowerCase() === 'maps.app.goo.gl') {
+      const query = placeName.trim();
+      if (!query) return '';
+      const embed = new URL('https://maps.google.com/maps');
+      embed.searchParams.set('q', query);
+      embed.searchParams.set('output', 'embed');
+      return embed.href;
+    }
+    if (!isGoogleMapsUrl(url.href)) return '';
+    url.searchParams.set('output', 'embed');
+    return url.href;
+  } catch {
+    return '';
+  }
 }
 
 export function extractFacebookVideoId(raw: string): string | null {
@@ -221,6 +345,33 @@ export function extractFacebookVideoId(raw: string): string | null {
 export function buildFacebookVideoUrl(raw: string): string {
   const id = extractFacebookVideoId(raw);
   return id ? `https://www.facebook.com/reel/${id}` : ensureUrl(raw);
+}
+
+export function isFacebookPostShareUrl(raw: string): boolean {
+  try {
+    return /^\/share\/p\/[^/?#]+/i.test(new URL(ensureUrl(raw)).pathname);
+  } catch {
+    return false;
+  }
+}
+
+export function extractFacebookPostId(raw: string): string | null {
+  try {
+    const url = new URL(ensureUrl(raw));
+    const fbid = url.searchParams.get('fbid') ?? url.searchParams.get('story_fbid');
+    if (fbid && /^\d+$/.test(fbid)) return fbid;
+    const shareCode = url.pathname.match(/\/share\/p\/([^/?#]+)/i)?.[1];
+    if (shareCode) return FACEBOOK_SHARE_POST_ID_OVERRIDES[shareCode] ?? null;
+    const photoPath = url.pathname.match(/\/(?:photos|photo)\/[^/]*\/?(\d+)(?:\/|$)/i)?.[1];
+    return photoPath ?? null;
+  } catch {
+    return /^\d+$/.test(raw.trim()) ? raw.trim() : null;
+  }
+}
+
+export function buildFacebookPostUrl(raw: string): string {
+  const id = extractFacebookPostId(raw);
+  return id ? `https://www.facebook.com/photo/?fbid=${id}` : ensureUrl(raw);
 }
 
 export function extractTikTokVideoId(raw: string): string | null {
@@ -284,6 +435,74 @@ function extractWistiaMediaId(url: URL): string | null {
     url.pathname.match(/\/embed\/(?:iframe|medias)\/([a-z0-9]+)(?:\/|$)/i)?.[1] ??
     null
   );
+}
+
+function extractMastodonStatusId(url: URL): string | null {
+  return (
+    url.pathname.match(/^\/@[^/]+\/(\d+)(?:\/|$)/i)?.[1] ??
+    url.pathname.match(/^\/users\/[^/]+\/statuses\/(\d+)(?:\/|$)/i)?.[1] ??
+    null
+  );
+}
+
+function buildRedditEmbedUrl(source: string, id: string): string {
+  try {
+    const url = new URL(source);
+    const path = url.hostname.toLocaleLowerCase() === 'redd.it' ? `/comments/${id}/` : url.pathname;
+    const embed = new URL(`https://www.redditmedia.com${path}`);
+    embed.searchParams.set('ref_source', 'embed');
+    embed.searchParams.set('ref', 'share');
+    embed.searchParams.set('embed', 'true');
+    embed.searchParams.set('showmedia', 'true');
+    return embed.href;
+  } catch {
+    return '';
+  }
+}
+
+function buildThreadsEmbedUrl(source: string): string {
+  try {
+    const url = new URL(source);
+    url.search = '';
+    url.hash = '';
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/embed/`;
+    return url.href;
+  } catch {
+    return '';
+  }
+}
+
+function buildMastodonEmbedUrl(source: string): string {
+  try {
+    const url = new URL(source);
+    url.search = '';
+    url.hash = '';
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/embed`;
+    return url.href;
+  } catch {
+    return '';
+  }
+}
+
+function buildLegacySocialPostEmbedUrl(detected: ContentDetection, source: string): string {
+  switch (detected.contentType) {
+    case 'twitter-post':
+      return detected.mediaId
+        ? `https://platform.twitter.com/embed/Tweet.html?dnt=true&id=${detected.mediaId}`
+        : '';
+    case 'reddit-post':
+      return buildRedditEmbedUrl(source, detected.mediaId);
+    case 'threads-post':
+      return buildThreadsEmbedUrl(source);
+    case 'mastodon-post':
+      return buildMastodonEmbedUrl(source);
+    case 'linkedin-post':
+      return detected.mediaId
+        ? `https://www.linkedin.com/embed/feed/update/urn:li:activity:${detected.mediaId}`
+        : '';
+    default:
+      return '';
+  }
 }
 
 const TWITCH_RESERVED_PATHS = new Set([

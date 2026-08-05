@@ -10,6 +10,13 @@ export type ContentType =
   | 'facebook-reel'
   | 'facebook-share'
   | 'facebook-post'
+  | 'twitter-post'
+  | 'reddit-post'
+  | 'threads-post'
+  | 'bluesky-post'
+  | 'mastodon-post'
+  | 'linkedin-post'
+  | 'google-maps'
   | 'tiktok'
   | 'tiktok-share'
   | 'dailymotion'
@@ -100,6 +107,7 @@ export interface ContentFilters {
   readonly favouriteOnly: boolean;
   readonly consumed: 'all' | 'consumed' | 'unconsumed';
   readonly adultOnly: boolean;
+  readonly excludeAdult: boolean;
   readonly dateFrom: string;
   readonly dateTo: string;
   readonly sort: ContentSort;
@@ -252,6 +260,8 @@ export interface PinParameters {
 
 export interface AppSettings extends BaseRecord {
   readonly theme: ThemePreference;
+  readonly openPostsInApp: boolean;
+  readonly muteVideosByDefault: boolean;
   readonly showAdultContent: boolean;
   readonly androidMetadataEnabled: boolean;
   readonly browserMetadataEnabled: boolean;
@@ -369,6 +379,13 @@ export const CONTENT_TYPES: readonly { readonly value: ContentType; readonly lab
   { value: 'facebook-reel', label: 'Facebook Reel' },
   { value: 'facebook-share', label: 'Facebook shared video' },
   { value: 'facebook-post', label: 'Facebook post' },
+  { value: 'twitter-post', label: 'X / Twitter post' },
+  { value: 'reddit-post', label: 'Reddit post' },
+  { value: 'threads-post', label: 'Threads post' },
+  { value: 'bluesky-post', label: 'Bluesky post' },
+  { value: 'mastodon-post', label: 'Mastodon post' },
+  { value: 'linkedin-post', label: 'LinkedIn post' },
+  { value: 'google-maps', label: 'Google Maps place' },
   { value: 'tiktok', label: 'TikTok video' },
   { value: 'tiktok-share', label: 'TikTok shared video' },
   { value: 'dailymotion', label: 'Dailymotion' },

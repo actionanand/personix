@@ -32,9 +32,15 @@ interface ThirdPartyResponse {
   };
 }
 
+interface CachedThirdPartyResponse {
+  readonly expiresAt: number;
+  readonly request: Promise<ThirdPartyResponse>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class MetadataService {
   private readonly native = inject(NativeIntegrationService);
+  private readonly responseCache = new Map<string, CachedThirdPartyResponse>();
 
   async fetch(url: string, settings: AppSettings): Promise<MetadataPatch> {
     const disabled = (): MetadataPatch => ({
@@ -64,16 +70,7 @@ export class MetadataService {
     }
     if (!settings.browserMetadataEnabled) return disabled();
     try {
-      const endpoint = new URL('https://api.microlink.io/');
-      endpoint.searchParams.set('url', url);
-      const controller = new AbortController();
-      const timer = window.setTimeout(() => controller.abort(), settings.metadataTimeoutMs);
-      const response = await fetch(endpoint, { signal: controller.signal });
-      window.clearTimeout(timer);
-      if (!response.ok) throw new Error(`Metadata service returned ${response.status}.`);
-      const body = (await response.json()) as ThirdPartyResponse;
-      if (body.status && body.status !== 'success')
-        throw new Error('Metadata service could not read this URL.');
+      const body = await this.browserResponse(url, settings);
       return this.patch(
         {
           title: body.data?.title,
@@ -90,10 +87,10 @@ export class MetadataService {
     }
   }
 
-  // Follows a share-link redirect to its canonical URL. Runs independently of the
-  // metadata toggles because a resolved URL is required for the video to play.
-  // Android resolves only through the native bridge; third-party services such as
-  // microlink are never contacted on Android.
+  // Follows a share-link redirect to its canonical URL. Android resolves only
+  // through the native bridge; third-party services are never contacted there.
+  // Browsers first ask the destination itself, then use Microlink only after the
+  // explicit third-party fetching consent has been enabled.
   async resolveShareUrl(url: string, settings: AppSettings): Promise<ShareResolution | null> {
     if (this.native.isAndroid()) {
       try {
@@ -108,21 +105,72 @@ export class MetadataService {
         return null;
       }
     }
+    const direct = await this.followBrowserRedirect(url, settings.metadataTimeoutMs);
+    if (direct && direct !== this.safeUrl(url)) return { url: direct, aspectRatio: null };
+    if (!settings.browserMetadataEnabled) return null;
     try {
-      const endpoint = new URL('https://api.microlink.io/');
-      endpoint.searchParams.set('url', url);
-      const controller = new AbortController();
-      const timer = window.setTimeout(() => controller.abort(), settings.metadataTimeoutMs);
-      const response = await fetch(endpoint, { signal: controller.signal });
-      window.clearTimeout(timer);
-      if (!response.ok) return null;
-      const body = (await response.json()) as ThirdPartyResponse;
-      if (body.status && body.status !== 'success') return null;
+      const body = await this.browserResponse(url, settings);
       const resolved = this.safeUrl(body.data?.url);
       if (!resolved) return null;
       return { url: resolved, aspectRatio: this.aspectRatio(body.data?.image) };
     } catch {
       return null;
+    }
+  }
+
+  private async browserResponse(url: string, settings: AppSettings): Promise<ThirdPartyResponse> {
+    const endpoint = new URL(
+      settings.browserMetadataServiceUrl.trim() || 'https://api.microlink.io/',
+    );
+    if (endpoint.protocol !== 'https:') throw new Error('Metadata service must use HTTPS.');
+    endpoint.searchParams.set('url', url);
+    const key = endpoint.href;
+    const cached = this.responseCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.request;
+
+    const request = this.requestBrowserResponse(endpoint, settings.metadataTimeoutMs);
+    this.responseCache.set(key, { expiresAt: Date.now() + 60_000, request });
+    try {
+      return await request;
+    } catch (error) {
+      this.responseCache.delete(key);
+      throw error;
+    }
+  }
+
+  private async requestBrowserResponse(
+    endpoint: URL,
+    timeoutMs: number,
+  ): Promise<ThirdPartyResponse> {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(endpoint, { signal: controller.signal });
+      if (!response.ok) throw new Error(`Metadata service returned ${response.status}.`);
+      const body = (await response.json()) as ThirdPartyResponse;
+      if (body.status && body.status !== 'success')
+        throw new Error('Metadata service could not read this URL.');
+      return body;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  private async followBrowserRedirect(url: string, timeoutMs: number): Promise<string | null> {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        credentials: 'omit',
+        mode: 'no-cors',
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+      return this.safeUrl(response.url) ?? null;
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timer);
     }
   }
 

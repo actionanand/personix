@@ -136,6 +136,37 @@
   </section>
   <section class="setting-section card">
     <header>
+      <span><app-icon name="circle-play" /></span>
+      <div>
+        <h2>Content & playback</h2>
+        <p>Android link opening and video sound defaults</p>
+      </div>
+    </header>
+    <div class="setting-list">
+      <label class="row"
+        ><span
+          ><strong>Open posts inside Personix</strong
+          ><small
+            >Android only; Facebook and Instagram still open in their app or browser</small
+          ></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().openPostsInApp"
+          (change)="store.updateSettings({ openPostsInApp: $any($event.target).checked })"
+      /></label>
+      <label class="row"
+        ><span
+          ><strong>Mute videos by default</strong
+          ><small>Turn off to start video previews with sound</small></span
+        ><input
+          type="checkbox"
+          [checked]="store.settings().muteVideosByDefault"
+          (change)="store.updateSettings({ muteVideosByDefault: $any($event.target).checked })"
+      /></label>
+    </div>
+  </section>
+  <section class="setting-section card">
+    <header>
       <span><app-icon name="sun" /></span>
       <div>
         <h2>Appearance</h2>

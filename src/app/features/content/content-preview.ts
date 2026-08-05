@@ -1,9 +1,20 @@
-import { Component, ElementRef, computed, inject, input, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { SavedContent, isVideoContentType } from '../../core/models/app.models';
+import { AppStore } from '../../core/services/app-store.service';
 import { NativeIntegrationService } from '../../core/services/native-integration.service';
 import {
   buildEmbedUrl,
+  detectContentUrl,
   isEmbeddableContent,
   isVerticalContent,
 } from '../../core/utils/content-url';
@@ -37,6 +48,14 @@ interface PipResizeState extends PipSize {
   readonly top: number;
 }
 
+interface InstagramEmbedApi {
+  readonly Embeds: { process(): void };
+}
+
+interface BlueskyOEmbedResponse {
+  readonly html?: string;
+}
+
 @Component({
   selector: 'app-content-preview',
   imports: [AppIcon],
@@ -51,7 +70,16 @@ interface PipResizeState extends PipSize {
         <app-icon name="close" /> Exit PIP view
       </button>
     }
-    @if (videoUrl()) {
+    @if (googleMapsContent() && item().ogImageUrl && !previewImageFailed()) {
+      <img
+        class="preview-media map-photo"
+        [src]="item().ogImageUrl"
+        [alt]="label()"
+        loading="lazy"
+        referrerpolicy="no-referrer"
+        (error)="previewImageFailed.set(true)"
+      />
+    } @else if (videoUrl()) {
       <video
         #videoElement
         class="preview-media"
@@ -61,12 +89,22 @@ interface PipResizeState extends PipSize {
         [muted]="muted()"
         [attr.aria-label]="label()"
       ></video>
+    } @else if (instagramPostPermalink(); as permalink) {
+      <div class="instagram-post-frame">
+        <blockquote
+          class="instagram-media"
+          [attr.data-instgrm-permalink]="permalink"
+          data-instgrm-version="14"
+          aria-label="Instagram post preview"
+        ></blockquote>
+      </div>
     } @else if (safeEmbedUrl()) {
       <div
         class="embed-frame"
         [class.vertical]="vertical()"
         [class.instagram-video]="instagramVideo()"
-        [style.aspect-ratio]="aspectRatio()"
+        [class.social-post]="socialPost()"
+        [style.aspect-ratio]="socialPost() ? null : aspectRatio()"
       >
         <iframe
           [src]="safeEmbedUrl()"
@@ -83,6 +121,7 @@ interface PipResizeState extends PipSize {
         [src]="item().ogImageUrl"
         [alt]="label()"
         loading="lazy"
+        referrerpolicy="no-referrer"
         (error)="$any($event.target).hidden = true"
       />
     }
@@ -202,6 +241,12 @@ interface PipResizeState extends PipSize {
       aspect-ratio: 9 / 16;
       margin-inline: auto;
     }
+    .embed-frame.social-post {
+      height: min(36rem, 70dvh);
+      max-height: none;
+      aspect-ratio: auto;
+      background: var(--surface);
+    }
     .embed-frame.instagram-video {
       overflow: hidden;
     }
@@ -209,6 +254,18 @@ interface PipResizeState extends PipSize {
       display: block;
       width: calc(100% + 1.25rem);
       max-width: none;
+    }
+    .instagram-post-frame {
+      width: 100%;
+      overflow: hidden;
+      padding: 0.5rem;
+      background: var(--surface-muted);
+    }
+    .instagram-post-frame .instagram-media {
+      width: calc(100% - 2px) !important;
+      min-width: 0 !important;
+      max-width: 33.75rem !important;
+      margin: 1px auto !important;
     }
     iframe {
       width: 100%;
@@ -328,15 +385,21 @@ interface PipResizeState extends PipSize {
   `,
 })
 export class ContentPreview {
+  private static readonly blueskyEmbedCache = new Map<string, Promise<string>>();
   readonly item = input.required<SavedContent>();
   private readonly sanitizer = inject(DomSanitizer);
   private readonly native = inject(NativeIntegrationService);
+  private readonly store = inject(AppStore);
   private readonly videoElement = viewChild<ElementRef<HTMLVideoElement>>('videoElement');
-  protected readonly muted = signal(false);
+  protected readonly muted = signal(this.store.settings().muteVideosByDefault);
+  protected readonly previewImageFailed = signal(false);
+  private lastPreviewImage = '';
   protected readonly nativePipActive = signal(false);
+  private readonly nativePipEmbedSource = signal('');
   protected readonly miniPipUrl = signal<SafeResourceUrl | null>(null);
   protected readonly miniPipPosition = signal<PipPosition | null>(null);
   protected readonly miniPipSize = signal<PipSize | null>(null);
+  private readonly blueskyEmbedUrl = signal<SafeResourceUrl | null>(null);
   private miniPipDragState: PipDragState | null = null;
   private miniPipResizeState: PipResizeState | null = null;
   protected readonly label = computed(
@@ -350,21 +413,131 @@ export class ContentPreview {
   });
   protected readonly vertical = computed(() => this.aspectRatio() < 1);
   protected readonly instagramVideo = computed(() => this.item().contentType === 'instagram');
+  protected readonly googleMapsContent = computed(() => {
+    const item = this.item();
+    return (
+      item.contentType === 'google-maps' ||
+      detectContentUrl(item.resolvedUrl || item.url).contentType === 'google-maps'
+    );
+  });
+  protected readonly socialPost = computed(() => {
+    const item = this.item();
+    const type =
+      item.contentType === 'post'
+        ? detectContentUrl(item.resolvedUrl || item.url).contentType
+        : item.contentType;
+    return [
+      'twitter-post',
+      'reddit-post',
+      'threads-post',
+      'bluesky-post',
+      'mastodon-post',
+      'linkedin-post',
+    ].includes(type);
+  });
   protected readonly videoContent = computed(() => isVideoContentType(this.item().contentType));
   protected readonly videoUrl = computed(() =>
     this.item().contentType === 'generic-video' ? this.item().resolvedUrl || this.item().url : '',
   );
+  protected readonly instagramPostPermalink = computed(() => {
+    const item = this.item();
+    if (item.contentType !== 'instagram-post') return '';
+    const id = item.mediaId || detectContentUrl(item.resolvedUrl || item.url).mediaId;
+    return id ? `https://www.instagram.com/p/${id}/` : '';
+  });
+  private readonly blueskyPostUrl = computed(() => {
+    const item = this.item();
+    const detected = detectContentUrl(item.resolvedUrl || item.url);
+    return item.contentType === 'bluesky-post' || detected.contentType === 'bluesky-post'
+      ? detected.canonicalUrl
+      : '';
+  });
   protected readonly safeEmbedUrl = computed<SafeResourceUrl | null>(() => {
     const item = this.item();
-    if (!isEmbeddableContent(item.contentType)) return null;
-    if (
-      this.native.isAndroid() &&
-      (item.contentType === 'facebook-post' || item.contentType === 'instagram-post')
-    )
-      return null;
-    const url = buildEmbedUrl(item, this.muted());
-    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+    const embedItem = this.googleMapsContent()
+      ? { ...item, contentType: 'google-maps' as const }
+      : item;
+    if (!isEmbeddableContent(embedItem.contentType)) return null;
+    const url = this.nativePipEmbedSource() || buildEmbedUrl(embedItem, this.muted());
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : this.blueskyEmbedUrl();
   });
+
+  constructor() {
+    effect(() => {
+      const image = this.item().ogImageUrl;
+      if (image === this.lastPreviewImage) return;
+      this.lastPreviewImage = image;
+      this.previewImageFailed.set(false);
+    });
+    effect(() => {
+      if (!this.instagramPostPermalink()) return;
+      window.setTimeout(() => this.processInstagramEmbeds(), 0);
+    });
+    effect(() => {
+      const source = this.blueskyPostUrl();
+      this.blueskyEmbedUrl.set(null);
+      if (source) void this.resolveBlueskyEmbed(source);
+    });
+  }
+
+  private async resolveBlueskyEmbed(source: string): Promise<void> {
+    const cached = ContentPreview.blueskyEmbedCache.get(source);
+    const request = cached ?? this.fetchBlueskyEmbed(source);
+    if (!cached) ContentPreview.blueskyEmbedCache.set(source, request);
+    try {
+      const embedUrl = await request;
+      if (source !== this.blueskyPostUrl() || !embedUrl) return;
+      this.blueskyEmbedUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl));
+    } catch {
+      ContentPreview.blueskyEmbedCache.delete(source);
+    }
+  }
+
+  private async fetchBlueskyEmbed(source: string): Promise<string> {
+    const endpoint = new URL('https://embed.bsky.app/oembed');
+    endpoint.searchParams.set('url', source);
+    endpoint.searchParams.set('format', 'json');
+    endpoint.searchParams.set('maxwidth', '600');
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 10_000);
+    try {
+      // This is Bluesky's own public embed endpoint. It is intentionally direct
+      // and never routed through Personix's optional Microlink integration.
+      const response = await fetch(endpoint, { signal: controller.signal });
+      if (!response.ok) return '';
+      const body = (await response.json()) as BlueskyOEmbedResponse;
+      if (!body.html) return '';
+      const documentFragment = new DOMParser().parseFromString(body.html, 'text/html');
+      const uri = documentFragment
+        .querySelector<HTMLElement>('[data-bluesky-uri]')
+        ?.getAttribute('data-bluesky-uri');
+      if (!uri?.startsWith('at://')) return '';
+      return `https://embed.bsky.app/embed/${uri.slice('at://'.length)}`;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  private processInstagramEmbeds(): void {
+    const instagram = (window as unknown as { readonly instgrm?: InstagramEmbedApi }).instgrm;
+    if (instagram) {
+      instagram.Embeds.process();
+      return;
+    }
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[data-personix-instagram-embed]',
+    );
+    if (existing) {
+      existing.addEventListener('load', () => this.processInstagramEmbeds(), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://www.instagram.com/embed.js';
+    script.dataset['personixInstagramEmbed'] = 'true';
+    script.addEventListener('load', () => this.processInstagramEmbeds(), { once: true });
+    document.body.appendChild(script);
+  }
 
   protected toggleMute(): void {
     this.muted.update((value) => !value);
@@ -373,9 +546,11 @@ export class ContentPreview {
   }
 
   protected async requestPip(): Promise<void> {
+    const pipMuted = this.store.settings().muteVideosByDefault || this.muted();
     const video = this.videoElement()?.nativeElement;
     if (video?.requestPictureInPicture) {
       try {
+        video.muted = pipMuted;
         await video.requestPictureInPicture();
         return;
       } catch {
@@ -385,11 +560,13 @@ export class ContentPreview {
     const width = this.vertical() ? 360 : 400;
     const height = this.vertical() ? 640 : 225;
     const item = this.item();
-    const source = buildEmbedUrl(item, this.muted(), true);
+    const source = buildEmbedUrl(item, pipMuted, true);
     if (!source) return;
     if (this.native.isAndroid()) {
+      this.nativePipEmbedSource.set(source);
       this.nativePipActive.set(true);
       if (await this.native.enterPictureInPicture(width, height)) return;
+      this.nativePipEmbedSource.set('');
       this.nativePipActive.set(false);
     }
     if (item.contentType === 'youtube' || item.contentType === 'youtube-short') {
@@ -589,6 +766,9 @@ export class ContentPreview {
   protected onNativeResult(event: Event): void {
     const detail = (event as CustomEvent<{ readonly action: string; readonly data: string }>)
       .detail;
-    if (detail?.action === 'pip-mode') this.nativePipActive.set(detail.data === 'true');
+    if (detail?.action !== 'pip-mode') return;
+    const active = detail.data === 'true';
+    this.nativePipActive.set(active);
+    if (!active) this.nativePipEmbedSource.set('');
   }
 }

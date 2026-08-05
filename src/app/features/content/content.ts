@@ -1,12 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { CONTENT_CONFIG, isAndroidExternalPostUrl } from '../../core/config/content.config';
 import {
   AppSettings,
   CONTENT_TYPES,
   ContentFilters,
   ContentType,
-  PageCursor,
   SavedContent,
   isVideoContentType,
 } from '../../core/models/app.models';
@@ -17,9 +17,13 @@ import { FeedbackService } from '../../core/services/feedback.service';
 import { MetadataService } from '../../core/services/metadata.service';
 import { NativeIntegrationService } from '../../core/services/native-integration.service';
 import {
+  buildFacebookPostUrl,
   buildFacebookVideoUrl,
+  extractFacebookPostId,
   extractFacebookVideoId,
   extractTikTokVideoId,
+  isFacebookPostShareUrl,
+  isGoogleMapsShortUrl,
 } from '../../core/utils/content-url';
 import { AppIcon } from '../../shared/components/app-icon';
 import { SelectPicker, SelectPickerOption } from '../../shared/components/select-picker';
@@ -38,10 +42,16 @@ const DEFAULT_FILTERS: ContentFilters = {
   favouriteOnly: false,
   consumed: 'all',
   adultOnly: false,
+  excludeAdult: false,
   dateFrom: '',
   dateTo: '',
   sort: 'recent',
 };
+
+interface PaginationToken {
+  readonly key: string;
+  readonly page: number | null;
+}
 
 @Component({
   selector: 'app-content',
@@ -81,26 +91,46 @@ export class Content {
   protected readonly syncingMetadata = signal(false);
   protected readonly panelOpen = signal(false);
   protected readonly filterOpen = signal(false);
-  protected readonly nextCursor = signal<PageCursor | null>(null);
+  protected readonly expandedFilter = signal<'none' | 'tags' | 'recipients'>('none');
+  protected readonly currentPage = signal(1);
+  protected readonly totalItems = signal(0);
+  protected readonly totalPages = computed(() => Math.ceil(this.totalItems() / this.pageSize()));
+  protected readonly paginationItemLabel = computed(() =>
+    this.activeSection() === 'videos' ? 'video' : 'post',
+  );
+  protected readonly paginationTokens = computed<readonly PaginationToken[]>(() => {
+    const total = this.totalPages();
+    if (!total) return [];
+    const pages = new Set([1, 2, this.currentPage(), this.currentPage() + 1, total - 1, total]);
+    const visiblePages = [...pages]
+      .filter((page) => page >= 1 && page <= total)
+      .sort((left, right) => left - right);
+    const tokens: PaginationToken[] = [];
+    for (const page of visiblePages) {
+      const previous = tokens.at(-1)?.page;
+      if (previous && page - previous > 1)
+        tokens.push({ key: `ellipsis-${previous}-${page}`, page: null });
+      tokens.push({ key: `page-${page}`, page });
+    }
+    return tokens;
+  });
   protected readonly editing = signal<SavedContent | null>(null);
   protected readonly filters = signal<ContentFilters>(DEFAULT_FILTERS);
-  protected readonly categoryOptions = computed<readonly SelectPickerOption[]>(() => [
-    { value: '', label: 'All categories' },
-    ...this.categories()
-      .filter((item) => !item.isAdult || this.store.settings().showAdultContent)
-      .map((item) => ({ value: item.id, label: item.name })),
-  ]);
-  protected readonly tagOptions = computed<readonly SelectPickerOption[]>(() => [
-    { value: '', label: 'All tags' },
-    ...this.tags().map((item) => ({ value: item.id, label: item.name })),
-  ]);
-  protected readonly recipientOptions = computed<readonly SelectPickerOption[]>(() => [
-    { value: '', label: 'Anyone' },
-    ...this.recipients().map((item) => ({ value: item.id, label: item.name })),
-  ]);
   protected readonly tagSuggestions = computed(() => this.tags().map((item) => item.name));
   protected readonly recipientSuggestions = computed(() =>
     this.recipients().map((item) => item.name),
+  );
+  protected readonly visibleFilterTags = computed(() =>
+    this.tags().slice(0, CONTENT_CONFIG.filterPillPreviewLimit),
+  );
+  protected readonly visibleFilterRecipients = computed(() =>
+    this.recipients().slice(0, CONTENT_CONFIG.filterPillPreviewLimit),
+  );
+  protected readonly hiddenFilterTagCount = computed(() =>
+    Math.max(0, this.tags().length - CONTENT_CONFIG.filterPillPreviewLimit),
+  );
+  protected readonly hiddenFilterRecipientCount = computed(() =>
+    Math.max(0, this.recipients().length - CONTENT_CONFIG.filterPillPreviewLimit),
   );
   protected readonly sentOptions: readonly SelectPickerOption[] = [
     { value: 'all', label: 'All' },
@@ -118,9 +148,13 @@ export class Content {
     { value: 'recently-opened', label: 'Recently opened' },
     { value: 'title', label: 'Title' },
     { value: 'platform', label: 'Platform' },
-    { value: 'category', label: 'Category' },
     { value: 'waiting-to-send', label: 'Waiting to send' },
   ];
+  protected readonly adultFilterMode = computed<'all' | 'exclude' | 'only'>(() => {
+    if (this.filters().adultOnly) return 'only';
+    if (this.filters().excludeAdult) return 'exclude';
+    return 'all';
+  });
 
   protected readonly searchControl = this.formBuilder.nonNullable.control('');
   protected readonly contentForm = this.formBuilder.nonNullable.group({
@@ -149,17 +183,32 @@ export class Content {
     await this.syncMissingMetadata(false);
   }
 
-  protected async refresh(): Promise<void> {
+  protected async refresh(resetPage = true): Promise<void> {
+    if (resetPage) this.currentPage.set(1);
     this.loading.set(true);
     try {
+      const pageSize = this.pageSize();
+      const requestedPage = this.currentPage();
       const [page, categories, tags, recipients] = await Promise.all([
-        this.repository.list(this.filters(), this.store.settings().showAdultContent),
+        this.repository.list(
+          this.filters(),
+          this.store.settings().showAdultContent,
+          pageSize,
+          null,
+          (requestedPage - 1) * pageSize,
+        ),
         this.repository.categories(),
         this.repository.tags(),
         this.repository.recipients(),
       ]);
+      const lastPage = Math.ceil(page.total / pageSize);
+      if (lastPage && requestedPage > lastPage) {
+        this.currentPage.set(lastPage);
+        await this.refresh(false);
+        return;
+      }
       this.items.set(page.items);
-      this.nextCursor.set(page.nextCursor);
+      this.totalItems.set(page.total);
       this.categories.set(categories);
       this.tags.set(tags);
       this.recipients.set(recipients);
@@ -168,22 +217,11 @@ export class Content {
     }
   }
 
-  protected async loadMore(): Promise<void> {
-    const cursor = this.nextCursor();
-    if (!cursor || this.loading()) return;
-    this.loading.set(true);
-    try {
-      const page = await this.repository.list(
-        this.filters(),
-        this.store.settings().showAdultContent,
-        30,
-        cursor,
-      );
-      this.items.update((items) => [...items, ...page.items]);
-      this.nextCursor.set(page.nextCursor);
-    } finally {
-      this.loading.set(false);
-    }
+  protected goToPage(page: number): void {
+    if (this.loading() || page < 1 || page > this.totalPages() || page === this.currentPage())
+      return;
+    this.currentPage.set(page);
+    void this.refresh(false);
   }
 
   protected search(): void {
@@ -193,6 +231,15 @@ export class Content {
 
   protected updateFilter<K extends keyof ContentFilters>(key: K, value: ContentFilters[K]): void {
     this.filters.update((filters) => ({ ...filters, [key]: value }));
+    void this.refresh();
+  }
+
+  protected setAdultFilter(mode: 'all' | 'exclude' | 'only'): void {
+    this.filters.update((filters) => ({
+      ...filters,
+      adultOnly: mode === 'only',
+      excludeAdult: mode === 'exclude',
+    }));
     void this.refresh();
   }
 
@@ -322,13 +369,12 @@ export class Content {
       if (!previous || this.store.settings().autoRefreshMetadata) {
         const patch = await this.metadata.fetch(item.url, this.store.settings());
         if (patch.metadataStatus !== 'disabled') {
-          const resolved = this.repository.detectContent(
-            patch.resolvedUrl || item.resolvedUrl || item.url,
-          );
+          const resolvedUrl = this.metadataResolvedUrl(item, patch.resolvedUrl);
+          const resolved = this.repository.detectContent(resolvedUrl);
           item = await this.repository.save({
             ...item,
             ...patch,
-            resolvedUrl: patch.resolvedUrl || item.resolvedUrl,
+            resolvedUrl,
             mediaId: resolved.mediaId || item.mediaId,
             startTimeSeconds: resolved.startTimeSeconds || item.startTimeSeconds,
           });
@@ -348,29 +394,50 @@ export class Content {
   }
 
   private async resolveShareUrl(item: SavedContent): Promise<SavedContent> {
-    const isShare = item.contentType === 'facebook-share' || item.contentType === 'tiktok-share';
+    if (item.contentType === 'google-maps' && isGoogleMapsShortUrl(item.url)) {
+      const resolution = await this.metadata.resolveShareUrl(item.url, this.store.settings());
+      if (!resolution?.url || resolution.url === item.url) return item;
+      return this.repository.save({ ...item, resolvedUrl: resolution.url });
+    }
+    const isFacebookPostShare =
+      item.contentType === 'facebook-post' && isFacebookPostShareUrl(item.url);
+    const isShare =
+      item.contentType === 'facebook-share' ||
+      item.contentType === 'tiktok-share' ||
+      isFacebookPostShare;
     if (!isShare) return item;
     const source = item.resolvedUrl || item.url;
     const existingId =
       item.contentType === 'facebook-share'
         ? extractFacebookVideoId(source)
-        : extractTikTokVideoId(source);
+        : isFacebookPostShare
+          ? extractFacebookPostId(source)
+          : extractTikTokVideoId(source);
+    if (isFacebookPostShare && existingId) {
+      const resolvedUrl = buildFacebookPostUrl(source);
+      if (item.resolvedUrl === resolvedUrl && item.mediaId === existingId) return item;
+      return this.repository.save({ ...item, resolvedUrl, mediaId: existingId });
+    }
     if (existingId && item.aspectRatio) return item;
     const resolution = await this.metadata.resolveShareUrl(item.url, this.store.settings());
     if (!resolution) return item;
     const detected = this.repository.detectContent(resolution.url);
-    const mediaId = existingId ?? detected.mediaId;
-    if (!mediaId) return item;
+    const mediaId =
+      existingId ??
+      (isFacebookPostShare ? extractFacebookPostId(resolution.url) : detected.mediaId);
+    if (!mediaId && !isFacebookPostShare) return item;
     const resolvedUrl =
       item.resolvedUrl && existingId
         ? item.resolvedUrl
         : item.contentType === 'facebook-share'
           ? buildFacebookVideoUrl(resolution.url)
-          : resolution.url;
+          : isFacebookPostShare
+            ? buildFacebookPostUrl(resolution.url)
+            : resolution.url;
     return this.repository.save({
       ...item,
       resolvedUrl,
-      mediaId,
+      mediaId: mediaId ?? item.mediaId,
       aspectRatio: resolution.aspectRatio ?? item.aspectRatio,
     });
   }
@@ -378,13 +445,12 @@ export class Content {
   protected async refreshMetadata(item: SavedContent): Promise<void> {
     item = await this.resolveShareUrl(item);
     const patch = await this.metadata.fetch(item.url, this.store.settings());
-    const resolved = this.repository.detectContent(
-      patch.resolvedUrl || item.resolvedUrl || item.url,
-    );
+    const resolvedUrl = this.metadataResolvedUrl(item, patch.resolvedUrl);
+    const resolved = this.repository.detectContent(resolvedUrl);
     await this.repository.save({
       ...item,
       ...patch,
-      resolvedUrl: patch.resolvedUrl || item.resolvedUrl,
+      resolvedUrl,
       mediaId: resolved.mediaId || item.mediaId,
       startTimeSeconds: resolved.startTimeSeconds || item.startTimeSeconds,
     });
@@ -398,25 +464,23 @@ export class Content {
   }
 
   protected async syncMissingMetadata(showFeedback = true): Promise<void> {
-    if (
-      !this.native.isAndroid() ||
-      !this.store.settings().androidMetadataEnabled ||
-      this.syncingMetadata()
-    )
-      return;
+    const settings = this.store.settings();
+    const metadataEnabled = this.native.isAndroid()
+      ? settings.androidMetadataEnabled
+      : settings.browserMetadataEnabled;
+    if (!metadataEnabled || this.syncingMetadata()) return;
     this.syncingMetadata.set(true);
     let updated = 0;
     try {
       for (const item of await this.repository.missingPostMetadata()) {
         const patch = await this.metadata.fetch(item.url, this.store.settings());
         if (patch.metadataStatus !== 'success') continue;
-        const resolved = this.repository.detectContent(
-          patch.resolvedUrl || item.resolvedUrl || item.url,
-        );
+        const resolvedUrl = this.metadataResolvedUrl(item, patch.resolvedUrl);
+        const resolved = this.repository.detectContent(resolvedUrl);
         await this.repository.save({
           ...item,
           ...patch,
-          resolvedUrl: patch.resolvedUrl || item.resolvedUrl,
+          resolvedUrl,
           mediaId: resolved.mediaId || item.mediaId,
           startTimeSeconds: resolved.startTimeSeconds || item.startTimeSeconds,
         });
@@ -441,9 +505,63 @@ export class Content {
     }
   }
 
+  private metadataResolvedUrl(item: SavedContent, candidate?: string): string {
+    if (item.contentType === 'facebook-post' && item.mediaId) {
+      return buildFacebookPostUrl(item.resolvedUrl || candidate || item.url);
+    }
+    return candidate || item.resolvedUrl || item.url;
+  }
+
   protected async open(item: SavedContent): Promise<void> {
     await this.repository.save({ ...item, lastOpenedAt: new Date().toISOString() });
-    window.open(item.url, '_blank', 'noopener,noreferrer');
+    const url = item.resolvedUrl || item.url;
+    if (this.native.isAndroid()) {
+      const shouldOpenInApp =
+        !isVideoContentType(item.contentType) &&
+        this.store.settings().openPostsInApp &&
+        !isAndroidExternalPostUrl(url);
+      if (shouldOpenInApp) {
+        const title = item.title || item.ogTitle || item.platform || item.domain;
+        if (this.native.openInAppBrowser(url, title)) return;
+      }
+      if (this.native.openExternal(url)) return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  protected async shareOriginalUrl(item: SavedContent): Promise<void> {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: item.title || item.ogTitle || item.platform,
+          url: item.url,
+        });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+    await this.copyOriginalUrl(item);
+  }
+
+  protected async copyOriginalUrl(item: SavedContent): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(item.url);
+      this.feedback.notify('Original URL copied', 'info');
+    } catch {
+      const input = document.createElement('textarea');
+      input.value = item.url;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand('copy');
+      input.remove();
+      this.feedback.notify(
+        copied ? 'Original URL copied' : 'URL could not be copied',
+        copied ? 'info' : 'error',
+      );
+    }
   }
 
   protected async remove(item: SavedContent): Promise<void> {
@@ -479,5 +597,9 @@ export class Content {
       : this.activeSection() === 'videos'
         ? 'youtube'
         : 'article';
+  }
+
+  private pageSize(): number {
+    return CONTENT_CONFIG.itemsPerPage[this.activeSection()];
   }
 }
