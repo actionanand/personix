@@ -30,8 +30,13 @@
   @switch (activeTab()) {
     @case ('members') {
       @for (member of members(); track member.id) {
-        <article class="record card">
-          <div class="record-icon"><app-icon name="family" /></div>
+        <article class="record member-record card">
+          <div class="member-leading">
+            @if (member.bloodGroup) {
+              <span class="member-blood-group">{{ member.bloodGroup }}</span>
+            }
+            <div class="record-icon"><app-icon name="family" /></div>
+          </div>
           <div>
             <h2>
               {{ member.name }}
@@ -39,20 +44,19 @@
                 <app-icon name="star" />
               }
             </h2>
-            <p>
-              {{ member.relationship }}
+            <p class="member-summary">
+              <span>{{ member.relationship }}</span>
               @if (member.dateOfBirth) {
                 @let memberAge = age(member.dateOfBirth);
-                · Born {{ member.dateOfBirth | date: 'MMM-dd-yyyy' : 'UTC' }}
-                @if (memberAge !== null) {
-                  ({{ memberAge }} years)
-                }
+                <span class="birth-detail">
+                  · Born {{ member.dateOfBirth | date: 'MMM-dd-yyyy' : 'UTC' }}
+                  @if (memberAge !== null) {
+                    ({{ memberAge }} years)
+                  }
+                </span>
               }
             </p>
             <div class="details member-details">
-              @if (member.bloodGroup) {
-                <span class="detail-blood">{{ member.bloodGroup }}</span>
-              }
               @if (rasiName(member.rasiId)) {
                 <span class="detail-rasi">{{ rasiName(member.rasiId) }}</span>
               }
@@ -64,7 +68,7 @@
               }
             </div>
           </div>
-          <div class="record-actions">
+          <div class="record-actions member-actions">
             <button
               type="button"
               class="icon-button"
