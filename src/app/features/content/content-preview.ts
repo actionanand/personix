@@ -62,7 +62,12 @@ interface PipResizeState extends PipSize {
         [attr.aria-label]="label()"
       ></video>
     } @else if (safeEmbedUrl()) {
-      <div class="embed-frame" [class.vertical]="vertical()" [style.aspect-ratio]="aspectRatio()">
+      <div
+        class="embed-frame"
+        [class.vertical]="vertical()"
+        [class.instagram-video]="instagramVideo()"
+        [style.aspect-ratio]="aspectRatio()"
+      >
         <iframe
           [src]="safeEmbedUrl()"
           [title]="label()"
@@ -196,6 +201,14 @@ interface PipResizeState extends PipSize {
       max-height: 34rem;
       aspect-ratio: 9 / 16;
       margin-inline: auto;
+    }
+    .embed-frame.instagram-video {
+      overflow: hidden;
+    }
+    .embed-frame.instagram-video iframe {
+      display: block;
+      width: calc(100% + 1.25rem);
+      max-width: none;
     }
     iframe {
       width: 100%;
@@ -336,6 +349,7 @@ export class ContentPreview {
     return isVerticalContent(this.item().contentType) ? 9 / 16 : 16 / 9;
   });
   protected readonly vertical = computed(() => this.aspectRatio() < 1);
+  protected readonly instagramVideo = computed(() => this.item().contentType === 'instagram');
   protected readonly videoContent = computed(() => isVideoContentType(this.item().contentType));
   protected readonly videoUrl = computed(() =>
     this.item().contentType === 'generic-video' ? this.item().resolvedUrl || this.item().url : '',
