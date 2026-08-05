@@ -96,6 +96,27 @@ export class Family {
   protected readonly activeTab = signal<FamilyTab>('members');
   protected readonly panelOpen = signal(false);
   protected readonly editingRecord = signal<FamilyEditorRecord | null>(null);
+  protected readonly viewingRecord = signal<FamilyEditorRecord | null>(null);
+  protected readonly viewingMember = computed(() => {
+    const record = this.viewingRecord();
+    return record?.tab === 'members' ? record.value : null;
+  });
+  protected readonly viewingHospital = computed(() => {
+    const record = this.viewingRecord();
+    return record?.tab === 'hospital' ? record.value : null;
+  });
+  protected readonly viewingInsurance = computed(() => {
+    const record = this.viewingRecord();
+    return record?.tab === 'insurance' ? record.value : null;
+  });
+  protected readonly viewingItem = computed(() => {
+    const record = this.viewingRecord();
+    return record?.tab === 'items' ? record.value : null;
+  });
+  protected readonly viewingBloodGroup = computed(() => {
+    const record = this.viewingRecord();
+    return record?.tab === 'blood' ? record.value : null;
+  });
   protected readonly saving = signal(false);
   protected readonly query = this.formBuilder.nonNullable.control('');
   protected readonly members = signal<readonly FamilyMember[]>([]);
@@ -180,6 +201,7 @@ export class Family {
   protected selectTab(tab: FamilyTab): void {
     this.activeTab.set(tab);
     this.editingRecord.set(null);
+    this.viewingRecord.set(null);
     this.panelOpen.set(false);
     this.query.reset();
     void this.load();
@@ -210,6 +232,7 @@ export class Family {
   }
   protected editMember(member: FamilyMember): void {
     this.activeTab.set('members');
+    this.viewingRecord.set(null);
     this.editingRecord.set({ tab: 'members', value: member });
     this.memberForm.reset({
       name: member.name,
@@ -226,8 +249,15 @@ export class Family {
     });
     this.panelOpen.set(true);
   }
+  protected viewMember(member: FamilyMember): void {
+    this.viewingRecord.set({ tab: 'members', value: member });
+  }
+  protected closeRecordDetails(): void {
+    this.viewingRecord.set(null);
+  }
   protected editHospital(record: HospitalOpRecord): void {
     this.activeTab.set('hospital');
+    this.viewingRecord.set(null);
     this.editingRecord.set({ tab: 'hospital', value: record });
     this.hospitalForm.reset({
       hospitalName: record.hospitalName,
@@ -245,8 +275,12 @@ export class Family {
     });
     this.panelOpen.set(true);
   }
+  protected viewHospital(record: HospitalOpRecord): void {
+    this.viewingRecord.set({ tab: 'hospital', value: record });
+  }
   protected editInsurance(record: MedicalInsurance): void {
     this.activeTab.set('insurance');
+    this.viewingRecord.set(null);
     this.editingRecord.set({ tab: 'insurance', value: record });
     this.insuranceForm.reset({
       providerName: record.providerName,
@@ -264,8 +298,12 @@ export class Family {
     });
     this.panelOpen.set(true);
   }
+  protected viewInsurance(record: MedicalInsurance): void {
+    this.viewingRecord.set({ tab: 'insurance', value: record });
+  }
   protected editImportantItem(item: ImportantItem): void {
     this.activeTab.set('items');
+    this.viewingRecord.set(null);
     this.editingRecord.set({ tab: 'items', value: item });
     this.itemForm.reset({
       name: item.name,
@@ -282,8 +320,12 @@ export class Family {
     });
     this.panelOpen.set(true);
   }
+  protected viewImportantItem(item: ImportantItem): void {
+    this.viewingRecord.set({ tab: 'items', value: item });
+  }
   protected editBloodGroup(record: BloodGroupRecord): void {
     this.activeTab.set('blood');
+    this.viewingRecord.set(null);
     this.editingRecord.set({ tab: 'blood', value: record });
     this.bloodForm.reset({
       personName: record.personName,
@@ -295,6 +337,9 @@ export class Family {
       source: record.source,
     });
     this.panelOpen.set(true);
+  }
+  protected viewBloodGroup(record: BloodGroupRecord): void {
+    this.viewingRecord.set({ tab: 'blood', value: record });
   }
 
   protected async save(): Promise<void> {
@@ -410,6 +455,10 @@ export class Family {
   }
   protected memberName(id: string): string {
     return this.members().find((item) => item.id === id)?.name ?? '';
+  }
+  protected memberNames(ids: readonly string[]): string {
+    const names = ids.map((id) => this.memberName(id)).filter(Boolean);
+    return names.length ? names.join(', ') : 'Not linked';
   }
   protected rasiName(id: string): string {
     const item = this.rasis.find((value) => value.id === id);

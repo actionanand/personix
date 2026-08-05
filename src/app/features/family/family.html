@@ -72,6 +72,15 @@
             <button
               type="button"
               class="icon-button"
+              aria-label="View details for {{ member.name }}"
+              title="View details"
+              (click)="viewMember(member)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
               aria-label="Edit family member"
               (click)="editMember(member)"
             >
@@ -112,6 +121,15 @@
             </div>
           </div>
           <div class="record-actions">
+            <button
+              type="button"
+              class="icon-button"
+              aria-label="View details for {{ record.hospitalName }}"
+              title="View details"
+              (click)="viewHospital(record)"
+            >
+              <app-icon name="eye" />
+            </button>
             <button
               type="button"
               class="icon-button"
@@ -175,6 +193,15 @@
             <button
               type="button"
               class="icon-button"
+              aria-label="View details for {{ record.providerName }}"
+              title="View details"
+              (click)="viewInsurance(record)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
               aria-label="Edit insurance record"
               (click)="editInsurance(record)"
             >
@@ -227,6 +254,15 @@
             <button
               type="button"
               class="icon-button"
+              aria-label="View details for {{ item.name }}"
+              title="View details"
+              (click)="viewImportantItem(item)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
               aria-label="Edit important item"
               (click)="editImportantItem(item)"
             >
@@ -267,6 +303,15 @@
             <button
               type="button"
               class="icon-button"
+              aria-label="View details for {{ record.personName }}"
+              title="View details"
+              (click)="viewBloodGroup(record)"
+            >
+              <app-icon name="eye" />
+            </button>
+            <button
+              type="button"
+              class="icon-button"
               aria-label="Edit blood group record"
               (click)="editBloodGroup(record)"
             >
@@ -301,6 +346,362 @@
     }
   }
 </section>
+@if (viewingRecord()) {
+  <button
+    type="button"
+    class="member-dialog-backdrop"
+    aria-label="Close record details"
+    (click)="closeRecordDetails()"
+  ></button>
+  <section
+    class="member-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="record-dialog-title"
+  >
+    @if (viewingMember(); as member) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="family" /></div>
+          <div>
+            <p class="eyebrow">Family member</p>
+            <h2 id="record-dialog-title">
+              {{ member.name }}
+              @if (member.important) {
+                <app-icon name="star" />
+              }
+            </h2>
+            <p>{{ member.relationship }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Date of birth</dt>
+          <dd>
+            @if (member.dateOfBirth) {
+              @let memberAge = age(member.dateOfBirth);
+              {{ member.dateOfBirth | date: 'MMM-dd-yyyy' : 'UTC' }}
+              @if (memberAge !== null) {
+                ({{ memberAge }} years)
+              }
+            } @else {
+              Not recorded
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Gender</dt>
+          <dd>{{ member.gender || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Phone</dt>
+          <dd>
+            @if (member.phone) {
+              <button type="button" class="member-detail-link" (click)="call(member.phone)">
+                {{ member.phone }}
+              </button>
+            } @else {
+              Not recorded
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Blood group</dt>
+          <dd>{{ member.bloodGroup || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Rasi</dt>
+          <dd>{{ rasiName(member.rasiId) || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Nakshatra</dt>
+          <dd>{{ nakshatraName(member.nakshatraId) || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Gothram</dt>
+          <dd>{{ member.gothram || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ member.important ? 'Important' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ member.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editMember(member)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingHospital(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="hospital" /></div>
+          <div>
+            <p class="eyebrow">Hospital OP</p>
+            <h2 id="record-dialog-title">{{ record.hospitalName }}</h2>
+            <p>{{ record.patientName }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Branch</dt>
+          <dd>{{ record.branch || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Patient</dt>
+          <dd>{{ record.patientName }}</dd>
+        </div>
+        <div>
+          <dt>Family member</dt>
+          <dd>{{ memberName(record.familyMemberId) || 'Not linked' }}</dd>
+        </div>
+        <div>
+          <dt>OP number</dt>
+          <dd>{{ record.opNumber || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Department</dt>
+          <dd>{{ record.department || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Doctor</dt>
+          <dd>{{ record.doctorName || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Contacts</dt>
+          <dd>{{ record.contacts.join(', ') || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Last visit</dt>
+          <dd>{{ (record.lastVisitDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Website</dt>
+          <dd>{{ record.website || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ record.important ? 'Important' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editHospital(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingInsurance(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="insurance" /></div>
+          <div>
+            <p class="eyebrow">Medical insurance</p>
+            <h2 id="record-dialog-title">{{ record.providerName }}</h2>
+            <p>{{ record.policyName || 'Insurance policy' }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Policy name</dt>
+          <dd>{{ record.policyName || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Policy number</dt>
+          <dd>{{ record.policyNumber || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>TPA</dt>
+          <dd>{{ record.tpaName || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Contacts</dt>
+          <dd>{{ record.contacts.join(', ') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Email addresses</dt>
+          <dd>{{ record.emails.join(', ') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Covered family members</dt>
+          <dd>{{ memberNames(record.coveredFamilyMemberIds) }}</dd>
+        </div>
+        <div>
+          <dt>Start date</dt>
+          <dd>{{ (record.startDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Expiry date</dt>
+          <dd>{{ (record.expiryDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Website</dt>
+          <dd>{{ record.website || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ record.important ? 'Important' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editInsurance(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingItem(); as item) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon">
+            <app-icon [name]="item.itemType === 'medicine' ? 'medicine' : 'sparkle'" />
+          </div>
+          <div>
+            <p class="eyebrow">{{ item.itemType === 'medicine' ? 'Medicine' : 'Toiletry' }}</p>
+            <h2 id="record-dialog-title">{{ item.name }}</h2>
+            <p>Used for {{ item.usedFor }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div class="member-notes">
+          <dt>Used for</dt>
+          <dd>{{ item.usedFor }}</dd>
+        </div>
+        <div>
+          <dt>Family member</dt>
+          <dd>{{ memberName(item.familyMemberId) || 'Not linked' }}</dd>
+        </div>
+        <div>
+          <dt>Brand</dt>
+          <dd>{{ item.brand || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Form</dt>
+          <dd>{{ item.form || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Strength</dt>
+          <dd>{{ item.strength || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Doctor or hospital</dt>
+          <dd>{{ item.doctorOrHospital || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Usage instructions</dt>
+          <dd>{{ item.usageInstructions || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ item.favourite ? 'Favourite' : 'Standard' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ item.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editImportantItem(item)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingBloodGroup(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="blood-badge">{{ bloodLabel(record) }}</div>
+          <div>
+            <p class="eyebrow">Blood group</p>
+            <h2 id="record-dialog-title">{{ record.personName }}</h2>
+            <p>{{ bloodLabel(record) }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close record details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Family member</dt>
+          <dd>{{ memberName(record.familyMemberId) || 'Not linked' }}</dd>
+        </div>
+        <div>
+          <dt>Blood group</dt>
+          <dd>{{ bloodLabel(record) }}</dd>
+        </div>
+        <div>
+          <dt>Last verified</dt>
+          <dd>{{ (record.lastVerifiedDate | date: 'MMM-dd-yyyy' : 'UTC') || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Source</dt>
+          <dd>{{ record.source || 'Not recorded' }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editBloodGroup(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    }
+  </section>
+}
 @if (panelOpen()) {
   <button
     type="button"

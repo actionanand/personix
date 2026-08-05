@@ -175,6 +175,116 @@
 .member-actions .icon-button:hover {
   border-color: currentColor;
 }
+.member-dialog-backdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 13, 8, 0.62);
+  backdrop-filter: blur(2px);
+}
+.member-dialog {
+  position: fixed;
+  z-index: 121;
+  display: grid;
+  inset: 1rem;
+  width: min(calc(100% - 2rem), 38rem);
+  height: fit-content;
+  max-height: calc(100dvh - 2rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.35rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.member-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(
+      circle at 0 0,
+      color-mix(in srgb, var(--primary-soft) 80%, transparent),
+      transparent 65%
+    ),
+    var(--surface);
+}
+.member-dialog-heading {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  min-width: 0;
+}
+.member-dialog-heading h2 {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0.1rem 0 0;
+}
+.member-dialog-heading h2 app-icon {
+  color: #d99a16;
+}
+.member-dialog-heading p:not(.eyebrow) {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+.member-information {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  background: var(--surface-muted);
+}
+.member-information > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--surface);
+}
+.member-information dt {
+  margin-bottom: 0.28rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.member-information dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.member-information .member-notes {
+  grid-column: 1 / -1;
+}
+.member-detail-link {
+  padding: 0;
+  border: 0;
+  color: var(--primary);
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.member-dialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
 .blood-badge {
   display: grid;
   min-width: 3.8rem;
@@ -282,5 +392,14 @@
   }
   .wide {
     grid-column: 1;
+  }
+  .member-information {
+    grid-template-columns: 1fr;
+  }
+  .member-information .member-notes {
+    grid-column: 1;
+  }
+  .member-dialog > footer .button {
+    flex: 1;
   }
 }
