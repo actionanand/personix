@@ -156,23 +156,23 @@
   background: color-mix(in srgb, #b16c1f 16%, var(--surface));
 }
 .record-actions {
-  display: flex;
-}
-.member-actions {
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
   gap: 0.35rem;
-  align-self: center;
+  align-items: center;
+  justify-content: end;
 }
-.member-actions .icon-button {
+.record-actions .icon-button {
   border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
   color: var(--primary-deep);
   background: var(--primary-soft);
 }
-.member-actions .danger-text {
+.record-actions .danger-text {
+  grid-column: 2;
   border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
   background: var(--danger-soft);
 }
-.member-actions .icon-button:hover {
+.record-actions .icon-button:hover {
   border-color: currentColor;
 }
 .member-dialog-backdrop {
