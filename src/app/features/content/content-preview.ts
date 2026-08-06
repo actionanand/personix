@@ -9,12 +9,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { CONTENT_CONFIG } from '../../core/config/content.config';
 import { SavedContent, isVideoContentType } from '../../core/models/app.models';
 import { AppStore } from '../../core/services/app-store.service';
 import { NativeIntegrationService } from '../../core/services/native-integration.service';
 import {
   buildEmbedUrl,
   detectContentUrl,
+  isGenericGoogleMapsPreviewImage,
   isEmbeddableContent,
   isVerticalContent,
 } from '../../core/utils/content-url';
@@ -70,15 +72,39 @@ interface BlueskyOEmbedResponse {
         <app-icon name="close" /> Exit PIP view
       </button>
     }
-    @if (googleMapsContent() && item().ogImageUrl && !previewImageFailed()) {
+    @if (googleMapsPreviewImage() && !previewImageFailed()) {
       <img
         class="preview-media map-photo"
-        [src]="item().ogImageUrl"
+        [src]="googleMapsPreviewImage()"
         [alt]="label()"
         loading="lazy"
         referrerpolicy="no-referrer"
         (error)="previewImageFailed.set(true)"
       />
+    } @else if (facebookPosterFallback()) {
+      <div
+        class="facebook-restricted-preview"
+        [style.aspect-ratio]="aspectRatio()"
+        role="img"
+        [attr.aria-label]="label() + '. Facebook has blocked inline playback for this video.'"
+      >
+        @if (item().ogImageUrl && !previewImageFailed()) {
+          <img
+            [src]="item().ogImageUrl"
+            [alt]="label()"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            (error)="previewImageFailed.set(true)"
+          />
+        } @else {
+          <span class="facebook-restricted-placeholder">Facebook Reel</span>
+        }
+        <span class="facebook-restricted-message">
+          <app-icon name="shield-alert" />
+          <strong>Facebook blocked inline playback</strong>
+          <small>The saved preview is still available. Use Open to watch on Facebook.</small>
+        </span>
+      </div>
     } @else if (videoUrl()) {
       <video
         #videoElement
@@ -125,7 +151,7 @@ interface BlueskyOEmbedResponse {
         (error)="$any($event.target).hidden = true"
       />
     }
-    @if (videoContent()) {
+    @if (playbackControlsAvailable()) {
       <div class="preview-controls">
         <button
           type="button"
@@ -235,6 +261,44 @@ interface BlueskyOEmbedResponse {
       aspect-ratio: 16 / 9;
       border: 0;
       object-fit: cover;
+    }
+    .facebook-restricted-preview {
+      position: relative;
+      display: grid;
+      width: 100%;
+      min-height: 15rem;
+      overflow: hidden;
+      place-items: center;
+      color: #fff;
+      background: #101813;
+    }
+    .facebook-restricted-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .facebook-restricted-placeholder {
+      font-size: 1rem;
+      font-weight: 750;
+    }
+    .facebook-restricted-message {
+      position: absolute;
+      inset: auto 0 0;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.15rem 0.6rem;
+      align-items: center;
+      padding: 0.8rem 1rem;
+      background: linear-gradient(transparent, rgba(3, 12, 7, 0.94) 35%);
+      text-shadow: 0 1px 2px #000;
+    }
+    .facebook-restricted-message app-icon {
+      grid-row: 1 / span 2;
+      width: 1.35rem;
+      height: 1.35rem;
+    }
+    .facebook-restricted-message small {
+      line-height: 1.35;
     }
     .embed-frame.vertical {
       max-height: 34rem;
@@ -407,9 +471,12 @@ export class ContentPreview {
   );
   // Real video aspect ratio when known, otherwise a content-type default.
   protected readonly aspectRatio = computed(() => {
-    const stored = this.item().aspectRatio;
+    const item = this.item();
+    const stored = item.aspectRatio;
     if (stored && stored > 0 && Number.isFinite(stored)) return stored;
-    return isVerticalContent(this.item().contentType) ? 9 / 16 : 16 / 9;
+    const facebookReelShare =
+      item.contentType === 'facebook-share' && /facebook\.com\/share\/r\//i.test(item.url);
+    return isVerticalContent(item.contentType) || facebookReelShare ? 9 / 16 : 16 / 9;
   });
   protected readonly vertical = computed(() => this.aspectRatio() < 1);
   protected readonly instagramVideo = computed(() => this.item().contentType === 'instagram');
@@ -419,6 +486,11 @@ export class ContentPreview {
       item.contentType === 'google-maps' ||
       detectContentUrl(item.resolvedUrl || item.url).contentType === 'google-maps'
     );
+  });
+  protected readonly googleMapsPreviewImage = computed(() => {
+    if (!this.googleMapsContent()) return '';
+    const image = this.item().ogImageUrl;
+    return image && !isGenericGoogleMapsPreviewImage(image) ? image : '';
   });
   protected readonly socialPost = computed(() => {
     const item = this.item();
@@ -436,6 +508,15 @@ export class ContentPreview {
     ].includes(type);
   });
   protected readonly videoContent = computed(() => isVideoContentType(this.item().contentType));
+  protected readonly facebookPosterFallback = computed(() => {
+    const item = this.item();
+    if (!['facebook', 'facebook-reel', 'facebook-share'].includes(item.contentType)) return false;
+    const mediaId = item.mediaId || detectContentUrl(item.resolvedUrl || item.url).mediaId;
+    return CONTENT_CONFIG.facebookPosterFallbackVideoIds.some((id) => id === mediaId);
+  });
+  protected readonly playbackControlsAvailable = computed(
+    () => this.videoContent() && !this.facebookPosterFallback(),
+  );
   protected readonly videoUrl = computed(() =>
     this.item().contentType === 'generic-video' ? this.item().resolvedUrl || this.item().url : '',
   );
@@ -454,6 +535,7 @@ export class ContentPreview {
   });
   protected readonly safeEmbedUrl = computed<SafeResourceUrl | null>(() => {
     const item = this.item();
+    if (this.facebookPosterFallback()) return null;
     const embedItem = this.googleMapsContent()
       ? { ...item, contentType: 'google-maps' as const }
       : item;

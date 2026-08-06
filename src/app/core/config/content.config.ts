@@ -14,6 +14,10 @@ export const CONTENT_CONFIG = {
     posts: 10,
   },
   filterPillPreviewLimit: 20,
+  // Meta's official video player rejects these otherwise-public videos because
+  // of owner/content-rights restrictions. Keep this list narrow: all other
+  // Facebook videos continue to use the normal inline player.
+  facebookPosterFallbackVideoIds: ['1461026675781448'],
 } as const;
 
 const ANDROID_POST_APP_HOSTS: Readonly<Record<string, readonly string[]>> = {

@@ -1,109 +1,91 @@
-# Facebook (and TikTok) share-link resolution
+# Facebook share-link resolution and playback
 
-This document explains how Personix turns a platform _share_ link into a playable
-video embed, why the original share URL is kept, and how resolution differs
-between Android and the web.
+This document describes the two independent Facebook problems Personix handles:
+resolving an opaque share URL and displaying content that Meta does not permit an
+embedded player to show.
 
-## Symptom
+## Why a resolved reel can still say “Unavailable”
 
-Facebook share links copied from a group, for example
-`https://www.facebook.com/share/v/1ByFGRo8FF/`, rendered as:
+A URL such as `https://www.facebook.com/share/r/1DXv5GFJGw/` is an opaque share
+redirect. Personix can resolve and store its canonical URL, for example
+`https://www.facebook.com/reel/1461026675781448`.
 
-```text
-Video Unavailable
-This video may no longer exist, or you don't have permission to view it.
-```
+That does not guarantee that Meta's official embedded player will accept it. Meta
+can reject a correctly resolved public-looking URL because of its audience,
+ownership, music/content rights, login state, or embedding policy. Rewriting the
+URL cannot override that server-side decision. The same item can still show a
+preview in WhatsApp because link-preview crawling and iframe playback are
+different Facebook endpoints with different rules.
 
-The same content played correctly when opened as a canonical reel URL such as
-`https://www.facebook.com/reel/1821110698482978`.
+Personix uses Meta's official video iframe for inline playback and PIP, matching
+Scrollix. The iframe always receives the saved canonical URL rather than an opaque
+share URL. The card's **Open** action remains available when Meta refuses to embed
+a particular video; the app cannot read or override an error rendered inside
+Meta's cross-origin iframe.
 
-## Why share links fail in the embed
+Confirmed rights-blocked video IDs are kept in
+`CONTENT_CONFIG.facebookPosterFallbackVideoIds`. Only those IDs render their
+stored poster with an explanatory notice; this avoids showing Meta's error frame
+without diverting working Facebook reels away from the inline player. The list is
+intentionally explicit because the app cannot inspect a cross-origin iframe to
+discover the error after it renders.
 
-A share link (`facebook.com/share/[rv]/<code>`) is an opaque redirect. The short
-`<code>` cannot be converted to the numeric video id locally. Facebook's video
-plugin (`/plugins/video.php`) cannot render the share URL directly for many posts
-(group-shared videos in particular), so it shows "Video Unavailable".
+Facebook reels use a 9:16 fallback until real preview dimensions are available.
+Android reads `og:image:width` and `og:image:height` directly and stores the
+resulting aspect ratio, so landscape and portrait Facebook videos render in their
+actual shape after metadata is fetched.
 
-The plugin does render reliably when the `href` points at the canonical
-`https://www.facebook.com/reel/{id}` URL. Getting the numeric `{id}` requires
-following the redirect once.
+## Save-time resolution flow
 
-## Resolution flow
+Resolution happens while saving, and its result is persisted:
 
-Resolution happens **once, at save time**, and the result is persisted so no
-network resolution is needed when the item is later opened.
+1. `detectContentUrl` classifies `/share/r/` and `/share/v/` as Facebook video
+   shares. This URL-derived type is authoritative over a stale form selection.
+2. If the numeric video ID is already available from a canonical URL or an
+   offline override, Personix immediately stores the canonical reel URL. This
+   succeeds even if the later metadata request is offline.
+3. Otherwise Android's native metadata bridge follows the redirect using a
+   crawler-compatible request and also inspects Facebook's canonical metadata
+   and HTML for `/reel/`, `/videos/`, or `/watch/?v=` URLs.
+4. The saved record keeps:
+   - `url`: the original share URL, for reference;
+   - `resolvedUrl`: the canonical Facebook video URL;
+   - `mediaId`: the numeric Facebook video ID;
+   - Open/share/copy actions use the canonical URL when it is available.
+5. Preview metadata is fetched separately. Failure to fetch a title or poster
+   never prevents the record itself from being saved.
 
-1. On save, `detectContentUrl` classifies the link (for example `facebook-share`
-   or `tiktok-share`) and attempts a local id extraction.
-2. If the numeric id is already known (a canonical URL, or a code present in the
-   offline `FACEBOOK_SHARE_ID_OVERRIDES` map), the redirect is skipped, but the
-   resolver still runs once when the aspect ratio has not been captured yet.
-3. Otherwise `Content.resolveShareUrl` calls `MetadataService.resolveShareUrl`,
-   which follows the redirect to the canonical URL, extracts the id, and reads the
-   poster dimensions to compute the video aspect ratio.
-4. The item is saved with:
-   - `url` — the **original share URL**, kept unchanged for reference.
-   - `resolvedUrl` — the canonical `https://www.facebook.com/reel/{id}` URL.
-   - `mediaId` — the extracted numeric id.
-   - `aspectRatio` — the video's width/height, used to size the player frame.
-5. When the card is displayed, `buildEmbedUrl` normalizes the source through
-   `buildFacebookVideoUrl`, so the embed always uses the canonical reel URL. This
-   step is pure and performs no network request.
+Existing records can be repaired with the card's **Refresh metadata** action.
 
-## Adaptive player size
+## Android privacy and preview handling
 
-Facebook videos (including reels) come in different aspect ratios — portrait,
-square, and landscape — so a fixed frame letterboxes or crops many of them. The
-preview therefore sizes each player from the stored `aspectRatio`, falling back to
-a content-type default (9:16 for known-vertical types, otherwise 16:9) until the
-real ratio is known. The aspect ratio is captured once, at resolution time, from
-the poster dimensions returned by the resolver, so display stays free of network
-calls. On Android the native bridge does not yet report dimensions, so those items
-use the default frame until dimensions are available.
+Android never sends Facebook URLs to Microlink or another third-party metadata
+service. The generated `PersonixMetadata` bridge:
 
-Existing items saved before resolution are repaired the next time they are edited
-and re-saved, or when the per-item "refresh metadata" action is used.
+- follows redirects with `HttpURLConnection`;
+- uses a crawler-compatible user agent for Facebook preview metadata;
+- prefers `og:url`, then scans for a usable canonical video URL;
+- reads Open Graph/Twitter metadata and a useful fallback image;
+- downloads supported social preview images and returns them as a local data URL,
+  avoiding later Facebook CDN/referrer failures;
+- caps HTML and image sizes and treats all metadata errors as non-fatal.
 
-## The share URL is always kept
-
-The original share link is never overwritten. It stays in the `url` field of the
-saved content record, while the resolved canonical link is stored separately in
-`resolvedUrl`. "Open original" and search continue to use the share URL, and the
-embed uses the resolved URL.
-
-## Platform-specific resolution
-
-Resolution is deliberately routed by platform inside
-`MetadataService.resolveShareUrl`:
-
-- **Android** — resolves **only** through the native bridge
-  (`NativeIntegrationService.fetchMetadata`, backed by the Android `MetadataBridge`
-  which follows redirects with `HttpURLConnection` and returns `connection.getURL()`).
-  No third-party service is contacted. If native resolution fails, the method
-  returns `null` and does **not** fall back to any external API.
-- **Web** — resolves through the microlink API
-  (`https://api.microlink.io/`), which follows the redirect and returns the final
-  URL.
-
-This guarantees that on Android no third-party API or URL (microlink or otherwise)
-is used for share-link resolution.
-
-Because a resolved URL is required for playback, `resolveShareUrl` runs regardless
-of the `androidMetadataEnabled` / `browserMetadataEnabled` preview-metadata
-toggles. Those toggles only govern optional preview metadata (title, description,
-image) fetched separately by `MetadataService.fetch`.
+On the browser, Microlink is used only after the user explicitly enables browser
+third-party fetching in Settings.
 
 ## Offline overrides
 
-`FACEBOOK_SHARE_ID_OVERRIDES` in `src/app/core/utils/content-url.ts` maps known
-share codes to numeric ids. Entries there resolve instantly with no network call.
-The map is an optimization only; unknown codes are resolved via the platform flow
-above.
+`FACEBOOK_SHARE_ID_OVERRIDES` in
+`src/app/core/utils/content-url.ts` maps confirmed share codes to numeric video
+IDs. These entries are fast/offline fallbacks, not the primary resolution method.
+Unknown links continue through the native resolver.
 
 ## Related files
 
-- `src/app/core/utils/content-url.ts` — detection, id extraction, canonical URL
-  and embed construction.
-- `src/app/core/services/metadata.service.ts` — `resolveShareUrl` platform routing.
-- `src/app/features/content/content.ts` — `resolveShareUrl` save-time step.
-- `scripts/patch-android.mjs` — native `MetadataBridge` that follows redirects.
+- `src/app/core/utils/content-url.ts`: classification, ID extraction and
+  canonical URL construction.
+- `src/app/core/services/metadata.service.ts`: Android/web metadata routing.
+- `src/app/features/content/content.ts`: save-time resolution and persistence.
+- `src/app/features/content/content-preview.ts`: inline player, aspect ratio and
+  PIP UI.
+- `scripts/patch-android.mjs`: generated native resolver and image fetcher.

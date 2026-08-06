@@ -14,6 +14,14 @@ Notification small icons, if local notifications are added later, must be monoch
 
 The `PersonixMetadata` native bridge accepts only HTTP or HTTPS URLs, applies connect/read timeouts, follows redirects, stores the resolved URL, rejects non-HTML responses, and limits HTML reads to 1 MiB. Errors never prevent a record from being saved. Missing post previews synchronise on the Content screen when Android direct fetching is enabled. Browser third-party metadata remains a separate explicit opt-in and uses only `https://api.microlink.io/`.
 
+Facebook/social URLs and Google Maps links use a crawler-compatible native request so
+their Open Graph preview is fetched directly on the phone. Facebook share links also
+inspect canonical metadata and page markup for the real reel/video URL. Supported
+preview images are stored as bounded data URLs to avoid CDN referrer failures. Generic
+Google Maps product/pin icons are rejected; Personix uses the place photo when one is
+available and otherwise renders an interactive map from the resolved place URL. None of
+these Android paths use Microlink.
+
 ## Video picture-in-picture
 
 The Android patch enables resizable Activity picture-in-picture and exposes the constrained `PersonixPip` bridge on Android 8.0 and newer. Video previews use native HTML video PIP where available, Android Activity PIP in the installed app, Document PIP in supporting browsers, and an in-app mini-player as the final iframe fallback. Provider embed URLs are rebuilt with their supported mute parameters.

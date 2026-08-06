@@ -375,7 +375,7 @@
         }
         <div class="card-body">
           <div class="card-top">
-            <span class="chip">{{ item.platform || item.domain }}</span>
+            <span class="chip">{{ platformLabel(item) }}</span>
             @if (item.favourite) {
               <app-icon name="star" />
             }

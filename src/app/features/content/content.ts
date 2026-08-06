@@ -19,6 +19,7 @@ import { NativeIntegrationService } from '../../core/services/native-integration
 import {
   buildFacebookPostUrl,
   buildFacebookVideoUrl,
+  detectContentUrl,
   extractFacebookPostId,
   extractFacebookVideoId,
   extractTikTokVideoId,
@@ -327,10 +328,15 @@ export class Content {
       ]);
       const timestamp = previous?.createdAt;
       const detectedFromUrl = this.repository.detectContent(form.url);
+      const detectedTypeIsAuthoritative = !['website', 'other-link'].includes(
+        detectedFromUrl.contentType,
+      );
       const detected = {
         ...detectedFromUrl,
-        contentType: form.contentType,
-        platform: form.platform.trim() || detectedFromUrl.platform,
+        contentType: detectedTypeIsAuthoritative ? detectedFromUrl.contentType : form.contentType,
+        platform: detectedTypeIsAuthoritative
+          ? detectedFromUrl.platform
+          : form.platform.trim() || detectedFromUrl.platform,
       };
       let item = await this.repository.save({
         id: previous?.id,
@@ -418,27 +424,40 @@ export class Content {
       if (item.resolvedUrl === resolvedUrl && item.mediaId === existingId) return item;
       return this.repository.save({ ...item, resolvedUrl, mediaId: existingId });
     }
-    if (existingId && item.aspectRatio) return item;
+    let current = item;
+    if (item.contentType === 'facebook-share' && existingId) {
+      const canonicalUrl = buildFacebookVideoUrl(source);
+      if (item.resolvedUrl !== canonicalUrl || item.mediaId !== existingId) {
+        current = await this.repository.save({
+          ...item,
+          resolvedUrl: canonicalUrl,
+          mediaId: existingId,
+        });
+      }
+      if (current.aspectRatio) return current;
+    } else if (existingId && item.aspectRatio) {
+      return item;
+    }
     const resolution = await this.metadata.resolveShareUrl(item.url, this.store.settings());
-    if (!resolution) return item;
+    if (!resolution) return current;
     const detected = this.repository.detectContent(resolution.url);
     const mediaId =
       existingId ??
       (isFacebookPostShare ? extractFacebookPostId(resolution.url) : detected.mediaId);
-    if (!mediaId && !isFacebookPostShare) return item;
+    if (!mediaId && !isFacebookPostShare) return current;
     const resolvedUrl =
-      item.resolvedUrl && existingId
-        ? item.resolvedUrl
+      current.resolvedUrl && existingId
+        ? current.resolvedUrl
         : item.contentType === 'facebook-share'
           ? buildFacebookVideoUrl(resolution.url)
           : isFacebookPostShare
             ? buildFacebookPostUrl(resolution.url)
             : resolution.url;
     return this.repository.save({
-      ...item,
+      ...current,
       resolvedUrl,
-      mediaId: mediaId ?? item.mediaId,
-      aspectRatio: resolution.aspectRatio ?? item.aspectRatio,
+      mediaId: mediaId ?? current.mediaId,
+      aspectRatio: resolution.aspectRatio ?? current.aspectRatio,
     });
   }
 
@@ -461,6 +480,13 @@ export class Content {
       patch.metadataStatus === 'success' ? 'success' : 'warning',
     );
     await this.refresh();
+  }
+
+  protected platformLabel(item: SavedContent): string {
+    if (['facebook', 'facebook-reel', 'facebook-share'].includes(item.contentType)) {
+      return detectContentUrl(item.resolvedUrl || item.url).platform;
+    }
+    return item.platform || item.domain;
   }
 
   protected async syncMissingMetadata(showFeedback = true): Promise<void> {
