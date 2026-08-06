@@ -59,6 +59,10 @@ interface PaginationToken {
   imports: [ReactiveFormsModule, AppIcon, SelectPicker, TokenInput, ContentPreview],
   templateUrl: './content.html',
   styleUrl: './content.scss',
+  host: {
+    '(document:click)': 'dismissTitlePopover($event)',
+    '(document:keydown.escape)': 'dismissTitlePopover()',
+  },
 })
 export class Content {
   private readonly repository = inject(ContentRepository);
@@ -92,6 +96,7 @@ export class Content {
   protected readonly syncingMetadata = signal(false);
   protected readonly panelOpen = signal(false);
   protected readonly filterOpen = signal(false);
+  protected readonly expandedTitleId = signal<string | null>(null);
   protected readonly expandedFilter = signal<'none' | 'tags' | 'recipients'>('none');
   protected readonly currentPage = signal(1);
   protected readonly totalItems = signal(0);
@@ -487,6 +492,24 @@ export class Content {
       return detectContentUrl(item.resolvedUrl || item.url).platform;
     }
     return item.platform || item.domain;
+  }
+
+  protected contentTitle(item: SavedContent): string {
+    return item.title || item.ogTitle || item.domain;
+  }
+
+  protected titleNeedsPopup(item: SavedContent): boolean {
+    return this.contentTitle(item).length > 90;
+  }
+
+  protected toggleTitlePopover(item: SavedContent, event: MouseEvent): void {
+    event.stopPropagation();
+    this.expandedTitleId.update((id) => (id === item.id ? null : item.id));
+  }
+
+  protected dismissTitlePopover(event?: Event): void {
+    if (event?.target instanceof Element && event.target.closest('.title-popover')) return;
+    this.expandedTitleId.set(null);
   }
 
   protected async syncMissingMetadata(showFeedback = true): Promise<void> {
