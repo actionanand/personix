@@ -369,18 +369,54 @@
 } @else {
   <section class="content-grid" aria-label="Saved content results">
     @for (item of items(); track item.id) {
-      <article class="content-card card">
+      <article class="content-card card" [class.title-popover-open]="expandedTitleId() === item.id">
         @if (!item.adult || store.settings().showAdultContent) {
           <app-content-preview [item]="item" />
         }
         <div class="card-body">
           <div class="card-top">
-            <span class="chip">{{ item.platform || item.domain }}</span>
+            <span class="chip">{{ platformLabel(item) }}</span>
             @if (item.favourite) {
               <app-icon name="star" />
             }
           </div>
-          <h2>{{ item.title || item.ogTitle || item.domain }}</h2>
+          <div class="content-title" [class.expandable]="titleNeedsPopup(item)">
+            <h2>{{ contentTitle(item) }}</h2>
+            @if (titleNeedsPopup(item)) {
+              <button
+                type="button"
+                class="title-ellipsis"
+                aria-label="Show complete title"
+                title="Show complete title"
+                [attr.aria-expanded]="expandedTitleId() === item.id"
+                [attr.aria-controls]="'title-popover-' + item.id"
+                (click)="toggleTitlePopover(item, $event)"
+              >
+                &hellip;
+              </button>
+              @if (expandedTitleId() === item.id) {
+                <section
+                  class="title-popover"
+                  [id]="'title-popover-' + item.id"
+                  role="region"
+                  aria-label="Complete title"
+                >
+                  <header>
+                    <strong>Complete title</strong>
+                    <button
+                      type="button"
+                      class="popover-close"
+                      aria-label="Close complete title"
+                      (click)="dismissTitlePopover()"
+                    >
+                      <app-icon name="close" />
+                    </button>
+                  </header>
+                  <p>{{ contentTitle(item) }}</p>
+                </section>
+              }
+            }
+          </div>
           @if (item.description || item.ogDescription) {
             <p>{{ item.description || item.ogDescription }}</p>
           }

@@ -4,6 +4,8 @@ export interface NativeMetadataResult {
   readonly title?: string;
   readonly description?: string;
   readonly image?: string;
+  readonly imageWidth?: number;
+  readonly imageHeight?: number;
   readonly url?: string;
   readonly logo?: string;
   readonly siteName?: string;

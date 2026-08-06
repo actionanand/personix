@@ -5,6 +5,7 @@ import { ContentType, SavedContent, isVideoContentType } from '../models/app.mod
 // codes offline, without a network round-trip.
 const FACEBOOK_SHARE_ID_OVERRIDES: Record<string, string> = {
   '1HXy5sTsvb': '1646510169815130',
+  '1DXv5GFJGw': '1461026675781448',
 };
 
 // Facebook does not expose the destination of a short /share/p/ link in the
@@ -62,7 +63,7 @@ export function detectContentUrl(raw: string): ContentDetection {
     if (/^\/share\/[rv]\//i.test(path) || host === 'fb.watch')
       return result(
         'facebook-share',
-        'Facebook',
+        /^\/share\/r\//i.test(path) ? 'Facebook Reel' : 'Facebook Video',
         canonicalUrl,
         extractFacebookVideoId(canonicalUrl) ?? '',
       );
@@ -78,7 +79,7 @@ export function detectContentUrl(raw: string): ContentDetection {
     if (/\/(reel|watch|videos)\//i.test(path) || url.searchParams.has('v')) {
       return result(
         path.toLocaleLowerCase().includes('/reel/') ? 'facebook-reel' : 'facebook',
-        'Facebook',
+        path.toLocaleLowerCase().includes('/reel/') ? 'Facebook Reel' : 'Facebook Video',
         canonicalUrl,
         extractFacebookVideoId(canonicalUrl) ?? '',
       );
@@ -261,10 +262,7 @@ export function buildEmbedUrl(
 }
 
 export function isVerticalContent(type: ContentType): boolean {
-  // Facebook videos are intentionally excluded: Facebook reels can be either
-  // portrait or landscape, so they render in the standard 16:9 frame like
-  // YouTube rather than a forced 9:16 box that letterboxes landscape clips.
-  return ['youtube-short', 'instagram', 'tiktok', 'tiktok-share'].includes(type);
+  return ['youtube-short', 'instagram', 'facebook-reel', 'tiktok', 'tiktok-share'].includes(type);
 }
 
 export function isEmbeddableContent(type: ContentType): boolean {
@@ -311,20 +309,48 @@ export function isGoogleMapsShortUrl(raw: string): boolean {
 function buildGoogleMapsEmbedUrl(source: string, placeName: string): string {
   try {
     const url = new URL(source);
-    if (url.hostname.toLocaleLowerCase() === 'maps.app.goo.gl') {
-      const query = placeName.trim();
-      if (!query) return '';
+    const query = googleMapsQuery(url, placeName);
+    if (query) {
       const embed = new URL('https://maps.google.com/maps');
       embed.searchParams.set('q', query);
       embed.searchParams.set('output', 'embed');
       return embed.href;
     }
+    if (url.hostname.toLocaleLowerCase() === 'maps.app.goo.gl') return '';
     if (!isGoogleMapsUrl(url.href)) return '';
     url.searchParams.set('output', 'embed');
     return url.href;
   } catch {
     return '';
   }
+}
+
+export function isGenericGoogleMapsPreviewImage(raw: string): boolean {
+  if (!raw) return false;
+  try {
+    const url = new URL(raw);
+    const value = `${url.hostname}${url.pathname}`.toLocaleLowerCase();
+    return (
+      value.includes('/branding/product/') ||
+      value.includes('google_maps') ||
+      value.includes('maps_96in128dp') ||
+      value.includes('maps_64dp') ||
+      value.includes('maps_app_icon')
+    );
+  } catch {
+    return false;
+  }
+}
+
+function googleMapsQuery(url: URL, suppliedName: string): string {
+  const name = suppliedName.trim();
+  if (name && !/^(google maps|maps\.app\.goo\.gl)$/i.test(name)) return name;
+  const place = url.pathname.match(/\/maps\/place\/([^/]+)/i)?.[1];
+  if (place) return decodeURIComponent(place.replaceAll('+', ' '));
+  const query = url.searchParams.get('q') || url.searchParams.get('query');
+  if (query) return query;
+  const coordinates = url.pathname.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  return coordinates ? `${coordinates[1]},${coordinates[2]}` : '';
 }
 
 export function extractFacebookVideoId(raw: string): string | null {

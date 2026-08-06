@@ -7,6 +7,7 @@ export type MetadataPatch = Pick<
   | 'ogTitle'
   | 'ogDescription'
   | 'ogImageUrl'
+  | 'aspectRatio'
   | 'websiteName'
   | 'favicon'
   | 'metadataFetchedAt'
@@ -76,6 +77,8 @@ export class MetadataService {
           title: body.data?.title,
           description: body.data?.description,
           image: body.data?.image?.url,
+          imageWidth: body.data?.image?.width,
+          imageHeight: body.data?.image?.height,
           logo: body.data?.logo?.url,
           siteName: body.data?.publisher,
           url: body.data?.url,
@@ -100,7 +103,15 @@ export class MetadataService {
           settings.maxMetadataImageBytes,
         );
         const resolved = this.safeUrl(result?.url);
-        return resolved ? { url: resolved, aspectRatio: null } : null;
+        return resolved
+          ? {
+              url: resolved,
+              aspectRatio: this.aspectRatio({
+                width: result?.imageWidth,
+                height: result?.imageHeight,
+              }),
+            }
+          : null;
       } catch {
         return null;
       }
@@ -189,10 +200,15 @@ export class MetadataService {
     result: NativeMetadataResult,
     source: MetadataPatch['metadataSource'],
   ): MetadataPatch {
+    const aspectRatio = this.aspectRatio({
+      width: result.imageWidth,
+      height: result.imageHeight,
+    });
     return {
       ogTitle: this.clean(result.title),
       ogDescription: this.clean(result.description),
       ogImageUrl: this.safeImage(result.image),
+      ...(aspectRatio ? { aspectRatio } : {}),
       websiteName: this.clean(result.siteName),
       favicon: this.safeImage(result.logo),
       metadataFetchedAt: nowIso(),

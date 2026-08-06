@@ -1,5 +1,10 @@
 import type { SavedContent } from '../models/app.models';
-import { buildEmbedUrl, detectContentUrl } from './content-url';
+import {
+  buildEmbedUrl,
+  detectContentUrl,
+  isGenericGoogleMapsPreviewImage,
+  isVerticalContent,
+} from './content-url';
 
 describe('content URL utilities', () => {
   it('detects Google Maps short links as post content', () => {
@@ -21,6 +26,28 @@ describe('content URL utilities', () => {
     expect(embed).toContain('https://maps.google.com/maps?');
     expect(embed).toContain('q=Jaalakam+Kerala+Restaurant%2C+Bengaluru');
     expect(embed).toContain('output=embed');
+  });
+
+  it('builds a map fallback from the resolved place URL when Android receives a generic title', () => {
+    const embed = buildEmbedUrl({
+      contentType: 'google-maps',
+      url: 'https://maps.app.goo.gl/example',
+      resolvedUrl: 'https://www.google.com/maps/place/Jaalakam+Kerala+Restaurant/@13.1,77.7,17z',
+      mediaId: '',
+      startTimeSeconds: 0,
+      ogTitle: 'maps.app.goo.gl',
+    });
+    expect(embed).toContain('q=Jaalakam+Kerala+Restaurant');
+    expect(embed).toContain('output=embed');
+  });
+
+  it('rejects the generic Google Maps product icon as a place preview', () => {
+    expect(
+      isGenericGoogleMapsPreviewImage(
+        'https://www.gstatic.com/images/branding/product/2x/maps_96in128dp.png',
+      ),
+    ).toBe(true);
+    expect(isGenericGoogleMapsPreviewImage('https://example.com/place-photo.jpg')).toBe(false);
   });
 
   it('preserves YouTube start time in the embed URL', () => {
@@ -146,6 +173,26 @@ describe('content URL utilities', () => {
       startTimeSeconds: 0,
     });
     expect(embed).toContain(encodeURIComponent('https://www.facebook.com/reel/1646510169815130'));
+  });
+
+  it('recognizes the confirmed Facebook reel share even before Android resolves it', () => {
+    expect(detectContentUrl('https://www.facebook.com/share/r/1DXv5GFJGw/')).toMatchObject({
+      contentType: 'facebook-share',
+      platform: 'Facebook Reel',
+      mediaId: '1461026675781448',
+    });
+  });
+
+  it('labels Facebook reels and shared videos distinctly and sizes reels vertically', () => {
+    expect(detectContentUrl('https://www.facebook.com/reel/1461026675781448')).toMatchObject({
+      contentType: 'facebook-reel',
+      platform: 'Facebook Reel',
+    });
+    expect(detectContentUrl('https://www.facebook.com/share/v/example/')).toMatchObject({
+      contentType: 'facebook-share',
+      platform: 'Facebook Video',
+    });
+    expect(isVerticalContent('facebook-reel')).toBe(true);
   });
 
   it('normalizes any resolved Facebook share, not just known overrides', () => {

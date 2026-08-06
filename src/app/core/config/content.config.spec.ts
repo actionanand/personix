@@ -12,4 +12,8 @@ describe('content config', () => {
     expect(CONTENT_CONFIG.itemsPerPage.videos).toBeGreaterThan(0);
     expect(CONTENT_CONFIG.filterPillPreviewLimit).toBeGreaterThan(0);
   });
+
+  it('keeps confirmed Facebook embed restrictions explicit and narrowly scoped', () => {
+    expect(CONTENT_CONFIG.facebookPosterFallbackVideoIds).toEqual(['1461026675781448']);
+  });
 });

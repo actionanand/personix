@@ -344,15 +344,16 @@ public class MainActivity extends BridgeActivity {
       networkExecutor.execute(() -> {
         HttpURLConnection connection = null;
         try {
-          URL url = new URL(rawUrl); String protocol = url.getProtocol();
+          URL url = new URL(rawUrl); String protocol = url.getProtocol(); boolean crawler = prefersPreviewCrawler(rawUrl);
           if (!"https".equals(protocol) && !"http".equals(protocol)) throw new IllegalArgumentException("Only HTTP and HTTPS URLs are supported.");
           connection = (HttpURLConnection) url.openConnection(); connection.setConnectTimeout(Math.max(1000, timeoutMs)); connection.setReadTimeout(Math.max(1000, timeoutMs));
-          connection.setInstanceFollowRedirects(true); connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept", "text/html,application/xhtml+xml"); connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9"); connection.setRequestProperty("Accept-Encoding", "identity");
+          connection.setInstanceFollowRedirects(true); connection.setRequestProperty("User-Agent", crawler ? "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" : "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept", "text/html,application/xhtml+xml"); connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9"); connection.setRequestProperty("Accept-Encoding", "identity");
           int status = connection.getResponseCode(); if (status < 200 || status >= 400) throw new IllegalStateException("Website returned " + status + ".");
           String contentType = connection.getContentType(); if (contentType != null && !contentType.toLowerCase().contains("text/html")) throw new IllegalStateException("The URL did not return an HTML page.");
           int maxHtml = 1024 * 1024; byte[] bytes = readLimited(connection.getInputStream(), maxHtml); String html = new String(bytes, StandardCharsets.UTF_8);
           JSONObject result = new JSONObject(); result.put("title", first(meta(html, "og:title"), first(meta(html, "twitter:title"), title(html)))); result.put("description", first(meta(html, "og:description"), first(meta(html, "twitter:description"), meta(html, "description"))));
-          URL resolvedUrl = connection.getURL(); result.put("image", resolveUrl(resolvedUrl, first(meta(html, "og:image"), meta(html, "twitter:image")))); result.put("siteName", meta(html, "og:site_name")); result.put("url", resolvedUrl.toString());
+          URL responseUrl = connection.getURL(); String resolved = first(meta(html, "og:url"), responseUrl.toString()); String facebookResolved = facebookVideoUrl(html); if (isFacebookShare(rawUrl) && !facebookResolved.isEmpty()) resolved = facebookResolved; URL resolvedUrl = new URL(responseUrl, resolved);
+          String image = first(meta(html, "og:image"), first(meta(html, "og:image:url"), first(meta(html, "twitter:image"), firstImage(html)))); result.put("image", previewImage(rawUrl, resolvedUrl, image, maxImageBytes)); result.put("imageWidth", positiveInt(first(meta(html, "og:image:width"), meta(html, "twitter:image:width")))); result.put("imageHeight", positiveInt(first(meta(html, "og:image:height"), meta(html, "twitter:image:height")))); result.put("siteName", meta(html, "og:site_name")); result.put("url", resolvedUrl.toString());
           result.put("logo", resolveUrl(url, icon(html))); result.put("maxImageBytes", maxImageBytes);
           dispatch("metadata-fetch", true, result.toString(), "");
         } catch (Exception error) { dispatch("metadata-fetch", false, "", message(error)); }
@@ -367,9 +368,19 @@ public class MainActivity extends BridgeActivity {
   private String meta(String html, String property) { String quoted = Pattern.quote(property); String[] expressions = { "<meta[^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"'][^>]+content=[\\\"']([^\\\"']*)[\\\"']", "<meta[^>]+content=[\\\"']([^\\\"']*)[\\\"'][^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"']" }; for (String expression : expressions) { Matcher match = Pattern.compile(expression, Pattern.CASE_INSENSITIVE).matcher(html); if (match.find()) return decode(match.group(1)); } return ""; }
   private String title(String html) { Matcher match = Pattern.compile("<title[^>]*>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
   private String icon(String html) { Matcher match = Pattern.compile("<link[^>]+rel=[\\\"'][^\\\"']*icon[^\\\"']*[\\\"'][^>]+href=[\\\"']([^\\\"']+)[\\\"']", Pattern.CASE_INSENSITIVE).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
+  private String firstImage(String html) { Matcher match = Pattern.compile("<img[^>]+src=[\\\"']([^\\\"']+)[\\\"']", Pattern.CASE_INSENSITIVE).matcher(html); while (match.find()) { String candidate = decode(match.group(1)); if (!candidate.toLowerCase().contains("emoji") && !candidate.toLowerCase().contains("rsrc.php")) return candidate; } return ""; }
   private String decode(String value) { return value.replace("&amp;", "&").replace("&quot;", "\\\"").replace("&#39;", "'").replaceAll("\\\\s+", " ").trim(); }
   private String resolveUrl(URL base, String value) { if (value == null || value.isEmpty()) return ""; try { return new URL(base, value).toString(); } catch (Exception ignored) { return ""; } }
   private String first(String left, String right) { return left == null || left.isEmpty() ? right : left; }
+  private int positiveInt(String value) { try { return Math.max(0, Integer.parseInt(value.trim())); } catch (Exception ignored) { return 0; } }
+  private boolean hostEndsWith(String rawUrl, String suffix) { try { String host = new URL(rawUrl).getHost().toLowerCase(); return host.equals(suffix) || host.endsWith("." + suffix); } catch (Exception ignored) { return false; } }
+  private boolean isGoogleMapsUrl(String rawUrl) { return hostEndsWith(rawUrl, "maps.app.goo.gl") || hostEndsWith(rawUrl, "maps.google.com") || hostEndsWith(rawUrl, "google.com"); }
+  private boolean prefersPreviewCrawler(String rawUrl) { return hostEndsWith(rawUrl, "facebook.com") || hostEndsWith(rawUrl, "fb.com") || hostEndsWith(rawUrl, "instagram.com") || hostEndsWith(rawUrl, "reddit.com") || isGoogleMapsUrl(rawUrl); }
+  private boolean isFacebookShare(String rawUrl) { try { return new URL(rawUrl).getPath().matches("(?i).*/share/[rv]/[^/]+/?.*"); } catch (Exception ignored) { return false; } }
+  private String facebookVideoUrl(String html) { String normalized = html.replace("\\\\/", "/"); Matcher match = Pattern.compile("https?://(?:www\\\\.|m\\\\.)facebook\\\\.com/[^\\\\s<>]+", Pattern.CASE_INSENSITIVE).matcher(normalized); while (match.find()) { String candidate = decode(match.group()).replaceAll("[\\\"'&].*$", ""); String lower = candidate.toLowerCase(); if (lower.contains("/reel/") || lower.contains("/videos/") || lower.contains("/watch/?v=")) return candidate; } return ""; }
+  private boolean genericGoogleMapsImage(String rawUrl) { String lower = rawUrl.toLowerCase(); return lower.contains("/branding/product/") || lower.contains("google_maps") || lower.contains("maps_96in128dp") || lower.contains("maps_64dp") || lower.contains("maps_app_icon"); }
+  private String previewImage(String sourceUrl, URL base, String rawImage, int requestedMaximum) { String image = resolveUrl(base, rawImage); if (image.isEmpty() || (isGoogleMapsUrl(sourceUrl) && genericGoogleMapsImage(image))) return ""; if (!prefersPreviewCrawler(sourceUrl)) return image; String inlined = inlineImage(image, requestedMaximum); return inlined.isEmpty() ? image : inlined; }
+  private String inlineImage(String rawUrl, int requestedMaximum) { HttpURLConnection connection = null; try { int maximum = Math.max(65536, Math.min(requestedMaximum, 3 * 1024 * 1024)); connection = (HttpURLConnection) new URL(rawUrl).openConnection(); connection.setInstanceFollowRedirects(true); connection.setConnectTimeout(15000); connection.setReadTimeout(20000); connection.setRequestProperty("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"); connection.setRequestProperty("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"); int status = connection.getResponseCode(); if (status < 200 || status >= 300) return ""; String type = connection.getContentType(); if (type == null || !type.toLowerCase().startsWith("image/")) return ""; byte[] bytes = readLimited(connection.getInputStream(), maximum + 1); if (bytes.length == 0 || bytes.length > maximum) return ""; return "data:" + type.split(";")[0].trim() + ";base64," + Base64.encodeToString(bytes, Base64.NO_WRAP); } catch (Exception ignored) { return ""; } finally { if (connection != null) connection.disconnect(); } }
   private Uri requireWebUri(String rawUrl) { Uri uri = Uri.parse(rawUrl); String scheme = uri.getScheme(); if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) throw new IllegalArgumentException("Only web URLs can be opened."); return uri; }
   private void openWebUri(String rawUrl) { try { startActivity(new Intent(Intent.ACTION_VIEW, requireWebUri(rawUrl))); } catch (Exception ignored) { } }
 
@@ -415,6 +426,7 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -428,6 +440,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 public class PersonixPostActivity extends AppCompatActivity {
   public static final String EXTRA_URL = "personix.url";
@@ -443,12 +459,14 @@ public class PersonixPostActivity extends AppCompatActivity {
     int background = Color.parseColor(dark ? "#07140F" : "#F3F8F5");
     int foreground = Color.parseColor(dark ? "#F4FBF7" : "#0A2118");
     getWindow().setStatusBarColor(background); getWindow().setNavigationBarColor(background);
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
     LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(background);
     LinearLayout toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL); toolbar.setPadding(dp(8), dp(6), dp(8), dp(6)); toolbar.setBackgroundColor(background);
     Button close = toolbarButton("Close", foreground); close.setContentDescription("Close in-app post viewer"); close.setOnClickListener(view -> finish()); toolbar.addView(close);
     LinearLayout labels = new LinearLayout(this); labels.setOrientation(LinearLayout.VERTICAL); labels.setPadding(dp(8), 0, dp(8), 0);
-    TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setMaxLines(1); title.setText(getIntent().getStringExtra(EXTRA_TITLE)); labels.addView(title);
+    String requestedTitle = getIntent().getStringExtra(EXTRA_TITLE);
+    TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END); title.setText(requestedTitle == null || requestedTitle.trim().isEmpty() ? "Post" : requestedTitle); labels.addView(title);
     TextView domain = new TextView(this); domain.setTextColor(Color.parseColor(dark ? "#A8C0B5" : "#5F756B")); domain.setTextSize(12); domain.setMaxLines(1); domain.setText(Uri.parse(sourceUrl).getHost()); labels.addView(domain);
     toolbar.addView(labels, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
     Button browser = toolbarButton("Browser", foreground); browser.setContentDescription("Open post in browser"); browser.setOnClickListener(view -> openExternal(sourceUrl)); toolbar.addView(browser);
@@ -461,7 +479,15 @@ public class PersonixPostActivity extends AppCompatActivity {
       @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return handleNavigation(request.getUrl()); }
       @SuppressWarnings("deprecation") @Override public boolean shouldOverrideUrlLoading(WebView view, String url) { return handleNavigation(Uri.parse(url)); }
     });
-    root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1)); setContentView(root); webView.loadUrl(sourceUrl);
+    root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+    setContentView(root);
+    ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+      Insets safeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+      view.setPadding(safeInsets.left, safeInsets.top, safeInsets.right, safeInsets.bottom);
+      return windowInsets;
+    });
+    ViewCompat.requestApplyInsets(root);
+    webView.loadUrl(sourceUrl);
   }
 
   private Button toolbarButton(String text, int colour) { Button button = new Button(this); button.setAllCaps(false); button.setText(text); button.setTextColor(colour); button.setBackgroundColor(Color.TRANSPARENT); button.setMinWidth(0); button.setMinimumWidth(0); return button; }
