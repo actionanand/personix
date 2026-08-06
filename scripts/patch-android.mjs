@@ -426,6 +426,7 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -439,6 +440,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 public class PersonixPostActivity extends AppCompatActivity {
   public static final String EXTRA_URL = "personix.url";
@@ -454,12 +459,14 @@ public class PersonixPostActivity extends AppCompatActivity {
     int background = Color.parseColor(dark ? "#07140F" : "#F3F8F5");
     int foreground = Color.parseColor(dark ? "#F4FBF7" : "#0A2118");
     getWindow().setStatusBarColor(background); getWindow().setNavigationBarColor(background);
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
     LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(background);
     LinearLayout toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL); toolbar.setPadding(dp(8), dp(6), dp(8), dp(6)); toolbar.setBackgroundColor(background);
     Button close = toolbarButton("Close", foreground); close.setContentDescription("Close in-app post viewer"); close.setOnClickListener(view -> finish()); toolbar.addView(close);
     LinearLayout labels = new LinearLayout(this); labels.setOrientation(LinearLayout.VERTICAL); labels.setPadding(dp(8), 0, dp(8), 0);
-    TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setMaxLines(1); title.setText(getIntent().getStringExtra(EXTRA_TITLE)); labels.addView(title);
+    String requestedTitle = getIntent().getStringExtra(EXTRA_TITLE);
+    TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END); title.setText(requestedTitle == null || requestedTitle.trim().isEmpty() ? "Post" : requestedTitle); labels.addView(title);
     TextView domain = new TextView(this); domain.setTextColor(Color.parseColor(dark ? "#A8C0B5" : "#5F756B")); domain.setTextSize(12); domain.setMaxLines(1); domain.setText(Uri.parse(sourceUrl).getHost()); labels.addView(domain);
     toolbar.addView(labels, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
     Button browser = toolbarButton("Browser", foreground); browser.setContentDescription("Open post in browser"); browser.setOnClickListener(view -> openExternal(sourceUrl)); toolbar.addView(browser);
@@ -472,7 +479,15 @@ public class PersonixPostActivity extends AppCompatActivity {
       @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return handleNavigation(request.getUrl()); }
       @SuppressWarnings("deprecation") @Override public boolean shouldOverrideUrlLoading(WebView view, String url) { return handleNavigation(Uri.parse(url)); }
     });
-    root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1)); setContentView(root); webView.loadUrl(sourceUrl);
+    root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+    setContentView(root);
+    ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+      Insets safeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+      view.setPadding(safeInsets.left, safeInsets.top, safeInsets.right, safeInsets.bottom);
+      return windowInsets;
+    });
+    ViewCompat.requestApplyInsets(root);
+    webView.loadUrl(sourceUrl);
   }
 
   private Button toolbarButton(String text, int colour) { Button button = new Button(this); button.setAllCaps(false); button.setText(text); button.setTextColor(colour); button.setBackgroundColor(Color.TRANSPARENT); button.setMinWidth(0); button.setMinimumWidth(0); return button; }
