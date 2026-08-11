@@ -6,6 +6,14 @@ export const CONTENT_CONFIG = {
     'facebook',
     'instagram',
     'google-maps',
+    'amazon',
+    'flipkart',
+    'meesho',
+    'myntra',
+    'ajio',
+    'nykaa',
+    'snapdeal',
+    'tatacliq',
     // Other supported app names you can add later:
     // 'twitter', 'reddit', 'threads', 'bluesky', 'mastodon', 'linkedin', 'google-maps'
   ],
@@ -29,6 +37,14 @@ const ANDROID_POST_APP_HOSTS: Readonly<Record<string, readonly string[]>> = {
   bluesky: ['bsky.app'],
   mastodon: ['mastodon.social'],
   linkedin: ['linkedin.com'],
+  amazon: ['amazon.in', 'amazon.com', 'amzn.to', 'amzn.in', 'amzn.eu', 'amzn.asia', 'a.co'],
+  flipkart: ['flipkart.com', 'dl.flipkart.com', 'fkrt.cc', 'fkrt.it', 'fkrt.to'],
+  meesho: ['meesho.com'],
+  myntra: ['myntra.com'],
+  ajio: ['ajio.com'],
+  nykaa: ['nykaa.com'],
+  snapdeal: ['snapdeal.com'],
+  tatacliq: ['tatacliq.com'],
   'google-maps': ['maps.app.goo.gl', 'maps.google.com', 'google.com'],
 };
 

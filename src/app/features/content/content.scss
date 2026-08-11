@@ -90,15 +90,20 @@
 .save-content-tab:hover {
   background: var(--primary-deep);
 }
-.save-content-tab .material-symbols-rounded {
+.material-symbols-rounded {
   font-family: 'Material Symbols Rounded';
-  font-size: 1.5rem;
   font-variation-settings:
     'FILL' 0,
     'wght' 500,
     'GRAD' 0,
     'opsz' 24;
   line-height: 1;
+}
+.save-content-tab .material-symbols-rounded {
+  font-size: 1.5rem;
+}
+.header-save-content .material-symbols-rounded {
+  font-size: 1.25rem;
 }
 .filter-dialog-backdrop {
   position: fixed;
@@ -486,6 +491,9 @@
   justify-content: center;
   gap: 0.35rem;
 }
+.page-numbers {
+  display: contents;
+}
 .page-button {
   display: grid;
   min-width: 2.55rem;
@@ -666,6 +674,23 @@
   pointer-events: none;
 }
 @media (max-width: 38rem) {
+  .pagination-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+    width: 100%;
+  }
+  .page-numbers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    grid-column: 1 / -1;
+    order: -1;
+  }
+  .pagination .page-control {
+    width: 100%;
+  }
   .page-heading {
     display: grid;
   }

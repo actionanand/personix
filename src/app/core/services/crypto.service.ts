@@ -40,14 +40,18 @@ export class CryptoService {
     password: string,
     iterations = this.defaultIterations,
   ): Promise<EncryptedValue> {
+    return this.encryptBytes(new TextEncoder().encode(text), password, iterations);
+  }
+
+  async encryptBytes(
+    data: Uint8Array<ArrayBuffer>,
+    password: string,
+    iterations = this.defaultIterations,
+  ): Promise<EncryptedValue> {
     const salt = this.randomBytes(16);
     const iv = this.randomBytes(12);
     const key = await this.deriveAesKey(password, salt, iterations, ['encrypt']);
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      new TextEncoder().encode(text),
-    );
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
     return {
       salt: this.toBase64(salt),
       iv: this.toBase64(iv),
@@ -57,6 +61,10 @@ export class CryptoService {
   }
 
   async decrypt(value: EncryptedValue, password: string): Promise<string> {
+    return new TextDecoder().decode(await this.decryptBytes(value, password));
+  }
+
+  async decryptBytes(value: EncryptedValue, password: string): Promise<Uint8Array> {
     const salt = this.fromBase64(value.salt);
     const iv = this.fromBase64(value.iv);
     const key = await this.deriveAesKey(password, salt, value.iterations, ['decrypt']);
@@ -66,7 +74,7 @@ export class CryptoService {
         key,
         this.fromBase64(value.ciphertext),
       );
-      return new TextDecoder().decode(decrypted);
+      return new Uint8Array(decrypted);
     } catch {
       throw new Error('The backup password is incorrect or the backup is damaged.');
     }

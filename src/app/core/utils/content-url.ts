@@ -498,6 +498,7 @@ export function isShoppingShortLink(raw: string): boolean {
     if (/(^|\.)fkrt\.[a-z]+$/i.test(host)) return true;
     if (host === 'amzn.to' || host === 'a.co') return true;
     if (/(^|\.)amzn\.[a-z.]+$/i.test(host)) return /^\/d\//i.test(url.pathname);
+    if (/(^|\.)meesho\.com$/i.test(host)) return /^\/s\//i.test(url.pathname);
     return false;
   } catch {
     return false;

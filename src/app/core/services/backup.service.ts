@@ -49,12 +49,17 @@ export class BackupService {
       recordCounts[table] = values.length;
     }
     const payload: BackupPayload = { schemaVersion: 1, recordCounts, tables };
-    const encrypted = await this.crypto.encrypt(JSON.stringify(payload), password);
+    const json = JSON.stringify(payload);
+    const compress = typeof CompressionStream !== 'undefined';
+    const encrypted = compress
+      ? await this.crypto.encryptBytes(await this.gzip(json), password)
+      : await this.crypto.encrypt(json, password);
     return {
       format: 'personix-backup',
       version: 1,
       createdAt: new Date().toISOString(),
       appVersion: '1.0.0',
+      ...(compress ? { compression: 'gzip' as const } : {}),
       salt: encrypted.salt,
       iterations: encrypted.iterations,
       iv: encrypted.iv,
@@ -81,11 +86,26 @@ export class BackupService {
 
   async inspect(envelope: BackupEnvelope, password: string): Promise<BackupPayload> {
     this.validateEnvelope(envelope);
-    const json = await this.crypto.decrypt(envelope, password);
+    const json =
+      envelope.compression === 'gzip'
+        ? await this.gunzip(await this.crypto.decryptBytes(envelope, password))
+        : await this.crypto.decrypt(envelope, password);
     const payload = JSON.parse(json) as BackupPayload;
     if (payload.schemaVersion !== 1 || !payload.tables)
       throw new Error('This backup version is not supported.');
     return payload;
+  }
+
+  private async gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  private async gunzip(data: Uint8Array): Promise<string> {
+    const stream = new Blob([data as BlobPart])
+      .stream()
+      .pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text();
   }
 
   async restore(

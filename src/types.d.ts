@@ -19,7 +19,7 @@ declare global {
     };
     readonly PersonixPip?: {
       isSupported(): boolean;
-      enter(width: number, height: number): void;
+      enter(width: number, height: number, muted: boolean): void;
     };
     readonly PersonixBrowser?: {
       openInApp(url: string, title: string): void;
