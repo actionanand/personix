@@ -873,7 +873,7 @@ export class ContentPreview {
     const video = this.videoElement()?.nativeElement;
     if (video) {
       video.muted = muted;
-      void video.play().catch(() => {});
+      void video.play().catch(() => undefined);
       return;
     }
     this.postToEmbed('playVideo');
@@ -883,7 +883,7 @@ export class ContentPreview {
   private togglePipPlayback(play: boolean): void {
     const video = this.videoElement()?.nativeElement;
     if (video) {
-      if (play) void video.play().catch(() => {});
+      if (play) void video.play().catch(() => undefined);
       else video.pause();
       return;
     }
