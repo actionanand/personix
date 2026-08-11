@@ -25,6 +25,7 @@ export type ContentType =
   | 'twitch'
   | 'wistia'
   | 'generic-video'
+  | 'shopping'
   | 'post'
   | 'article'
   | 'website'
@@ -398,6 +399,7 @@ export const CONTENT_TYPES: readonly { readonly value: ContentType; readonly lab
   { value: 'twitch', label: 'Twitch' },
   { value: 'wistia', label: 'Wistia' },
   { value: 'generic-video', label: 'Generic video' },
+  { value: 'shopping', label: 'Shopping / Product' },
   { value: 'post', label: 'Post' },
   { value: 'article', label: 'Article' },
   { value: 'website', label: 'Website' },

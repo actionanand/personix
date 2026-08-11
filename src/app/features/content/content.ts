@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { CONTENT_CONFIG, isAndroidExternalPostUrl } from '../../core/config/content.config';
@@ -19,12 +19,14 @@ import { NativeIntegrationService } from '../../core/services/native-integration
 import {
   buildFacebookPostUrl,
   buildFacebookVideoUrl,
+  canonicalizeShoppingUrl,
   detectContentUrl,
   extractFacebookPostId,
   extractFacebookVideoId,
   extractTikTokVideoId,
   isFacebookPostShareUrl,
   isGoogleMapsShortUrl,
+  isShoppingShortLink,
 } from '../../core/utils/content-url';
 import { AppIcon } from '../../shared/components/app-icon';
 import { SelectPicker, SelectPickerOption } from '../../shared/components/select-picker';
@@ -95,6 +97,8 @@ export class Content {
   protected readonly saving = signal(false);
   protected readonly syncingMetadata = signal(false);
   protected readonly panelOpen = signal(false);
+  protected readonly fabAtEnd = signal(false);
+  private readonly fabSentinel = viewChild<ElementRef<HTMLElement>>('fabSentinel');
   protected readonly filterOpen = signal(false);
   protected readonly expandedTitleId = signal<string | null>(null);
   protected readonly expandedFilter = signal<'none' | 'tags' | 'recipients'>('none');
@@ -182,6 +186,21 @@ export class Content {
   constructor() {
     void this.initialize();
     if (this.route.snapshot.queryParamMap.has('add')) window.setTimeout(() => this.openAdd(), 0);
+    // Hide the mobile FAB once the end-of-list sentinel scrolls into view so it
+    // never covers the last cards or pagination.
+    effect((onCleanup) => {
+      const sentinel = this.fabSentinel()?.nativeElement;
+      if (!sentinel || typeof IntersectionObserver === 'undefined') {
+        this.fabAtEnd.set(false);
+        return;
+      }
+      const observer = new IntersectionObserver(
+        (entries) => this.fabAtEnd.set(entries[entries.length - 1]?.isIntersecting ?? false),
+        { rootMargin: '0px 0px 80px 0px' },
+      );
+      observer.observe(sentinel);
+      onCleanup(() => observer.disconnect());
+    });
   }
 
   private async initialize(): Promise<void> {
@@ -378,7 +397,7 @@ export class Content {
       this.feedback.notify(previous ? 'Content updated' : 'Content saved');
       await this.refresh();
       if (!previous || this.store.settings().autoRefreshMetadata) {
-        const patch = await this.metadata.fetch(item.url, this.store.settings());
+        const patch = await this.metadata.fetch(this.metadataUrl(item), this.store.settings());
         if (patch.metadataStatus !== 'disabled') {
           const resolvedUrl = this.metadataResolvedUrl(item, patch.resolvedUrl);
           const resolved = this.repository.detectContent(resolvedUrl);
@@ -409,6 +428,14 @@ export class Content {
       const resolution = await this.metadata.resolveShareUrl(item.url, this.store.settings());
       if (!resolution?.url || resolution.url === item.url) return item;
       return this.repository.save({ ...item, resolvedUrl: resolution.url });
+    }
+    if (item.contentType === 'shopping') {
+      if (!isShoppingShortLink(item.url)) return item;
+      const resolution = await this.metadata.resolveShareUrl(item.url, this.store.settings());
+      if (!resolution?.url || resolution.url === item.url) return item;
+      const resolvedUrl = canonicalizeShoppingUrl(resolution.url);
+      if (item.resolvedUrl === resolvedUrl) return item;
+      return this.repository.save({ ...item, resolvedUrl });
     }
     const isFacebookPostShare =
       item.contentType === 'facebook-post' && isFacebookPostShareUrl(item.url);
@@ -468,7 +495,7 @@ export class Content {
 
   protected async refreshMetadata(item: SavedContent): Promise<void> {
     item = await this.resolveShareUrl(item);
-    const patch = await this.metadata.fetch(item.url, this.store.settings());
+    const patch = await this.metadata.fetch(this.metadataUrl(item), this.store.settings());
     const resolvedUrl = this.metadataResolvedUrl(item, patch.resolvedUrl);
     const resolved = this.repository.detectContent(resolvedUrl);
     await this.repository.save({
@@ -522,7 +549,7 @@ export class Content {
     let updated = 0;
     try {
       for (const item of await this.repository.missingPostMetadata()) {
-        const patch = await this.metadata.fetch(item.url, this.store.settings());
+        const patch = await this.metadata.fetch(this.metadataUrl(item), this.store.settings());
         if (patch.metadataStatus !== 'success') continue;
         const resolvedUrl = this.metadataResolvedUrl(item, patch.resolvedUrl);
         const resolved = this.repository.detectContent(resolvedUrl);
@@ -558,7 +585,16 @@ export class Content {
     if (item.contentType === 'facebook-post' && item.mediaId) {
       return buildFacebookPostUrl(item.resolvedUrl || candidate || item.url);
     }
+    if (item.contentType === 'shopping') {
+      return canonicalizeShoppingUrl(item.resolvedUrl || candidate || item.url);
+    }
     return candidate || item.resolvedUrl || item.url;
+  }
+
+  // Marketplace previews resolve from the canonical product URL, not the
+  // share/tracking link the user pasted.
+  private metadataUrl(item: SavedContent): string {
+    return item.contentType === 'shopping' ? item.resolvedUrl || item.url : item.url;
   }
 
   protected async open(item: SavedContent): Promise<void> {

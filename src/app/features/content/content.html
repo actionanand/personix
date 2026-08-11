@@ -536,6 +536,7 @@
       </div>
     </nav>
   }
+  <div #fabSentinel class="fab-sentinel" aria-hidden="true"></div>
 }
 
 @if (panelOpen()) {
@@ -641,3 +642,14 @@
     </form>
   </section>
 }
+
+<button
+  type="button"
+  class="content-fab"
+  [class.content-fab-hidden]="fabAtEnd() || panelOpen()"
+  aria-label="Save content"
+  title="Save content"
+  (click)="openAdd()"
+>
+  <span class="material-symbols-rounded" aria-hidden="true">add_link</span>
+</button>

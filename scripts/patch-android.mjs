@@ -159,10 +159,16 @@ await writeTheme(resolve(resPath, 'values-night/styles.xml'), true);
 const java = `package ${appId};
 
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.app.PictureInPictureParams;
+import android.app.RemoteAction;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -207,10 +213,15 @@ import javax.crypto.spec.GCMParameterSpec;
 public class MainActivity extends BridgeActivity {
   private static final String KEY_ALIAS = "personix_biometric_key";
   private static final String SECURITY_PREFS = "personix_security";
+  private static final String ACTION_PIP_CONTROL = "${appId}.PIP_CONTROL";
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
   private ExportBridge exportBridge;
   private BiometricPrompt biometricPrompt;
+  private BroadcastReceiver pipReceiver;
+  private boolean pipPlaying = true;
+  private int pipWidth = 16;
+  private int pipHeight = 9;
   private boolean darkMode;
   private View launchOverlay;
   private long overlayShownAt;
@@ -228,6 +239,7 @@ public class MainActivity extends BridgeActivity {
     getBridge().getWebView().addJavascriptInterface(new BrowserBridge(), "PersonixBrowser");
     getBridge().getWebView().addJavascriptInterface(exportBridge, "PersonixExport");
     getBridge().getWebView().setBackgroundColor(Color.parseColor(darkMode ? "#07140F" : "#F3F8F5"));
+    registerPipReceiver();
     applyLaunchBars();
   }
 
@@ -239,13 +251,13 @@ public class MainActivity extends BridgeActivity {
   @Override public void onResume() { super.onResume(); if (launchOverlay == null) applySystemBars(darkMode); }
   @Override public void onPictureInPictureModeChanged(boolean active, Configuration configuration) { super.onPictureInPictureModeChanged(active, configuration); dispatch("pip-mode", true, active ? "true" : "false", ""); }
   @Override public void onWindowFocusChanged(boolean focus) { super.onWindowFocusChanged(focus); if (focus && launchOverlay == null) applySystemBars(darkMode); }
-  @Override public void onDestroy() { if (biometricPrompt != null) biometricPrompt.cancelAuthentication(); networkExecutor.shutdownNow(); mainHandler.removeCallbacksAndMessages(null); super.onDestroy(); }
+  @Override public void onDestroy() { if (pipReceiver != null) { try { unregisterReceiver(pipReceiver); } catch (Exception ignored) { } pipReceiver = null; } if (biometricPrompt != null) biometricPrompt.cancelAuthentication(); networkExecutor.shutdownNow(); mainHandler.removeCallbacksAndMessages(null); super.onDestroy(); }
 
   public class NativeBridge { @JavascriptInterface public void hideSplash() { runOnUiThread(() -> hideLaunchOverlay()); } }
   public class SystemBarsBridge { @JavascriptInterface public void setDarkMode(boolean value) { darkMode = value; runOnUiThread(() -> applySystemBars(value)); } }
   public class PipBridge {
     @JavascriptInterface public boolean isSupported() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O; }
-    @JavascriptInterface public void enter(int width, int height) { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return; runOnUiThread(() -> { PictureInPictureParams params = new PictureInPictureParams.Builder().setAspectRatio(new Rational(Math.max(1, width), Math.max(1, height))).build(); enterPictureInPictureMode(params); }); }
+    @JavascriptInterface public void enter(int width, int height) { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return; pipWidth = Math.max(1, width); pipHeight = Math.max(1, height); pipPlaying = true; runOnUiThread(() -> enterPictureInPictureMode(buildPipParams())); }
   }
 
   public class BrowserBridge {
@@ -408,6 +420,25 @@ public class MainActivity extends BridgeActivity {
   private void dispatch(String action, boolean success, String data, String error) { runOnUiThread(() -> { if (isFinishing() || getBridge() == null) return; String script = "window.dispatchEvent(new CustomEvent('personix-native-result',{detail:{action:" + JSONObject.quote(action) + ",success:" + success + ",data:" + JSONObject.quote(data == null ? "" : data) + ",message:" + JSONObject.quote(error == null ? "" : error) + "}}));"; getBridge().getWebView().evaluateJavascript(script, null); }); }
   private String message(Exception error) { return error.getMessage() == null ? "Android request failed." : error.getMessage(); }
 
+  private void registerPipReceiver() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || pipReceiver != null) return;
+    pipReceiver = new BroadcastReceiver() { @Override public void onReceive(Context context, Intent intent) { if (intent != null && ACTION_PIP_CONTROL.equals(intent.getAction())) togglePipPlayback(); } };
+    IntentFilter filter = new IntentFilter(ACTION_PIP_CONTROL);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) registerReceiver(pipReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    else registerReceiver(pipReceiver, filter);
+  }
+
+  private PictureInPictureParams buildPipParams() {
+    PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder().setAspectRatio(new Rational(Math.max(1, pipWidth), Math.max(1, pipHeight)));
+    int iconRes = pipPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
+    String label = pipPlaying ? "Pause" : "Play";
+    PendingIntent pending = PendingIntent.getBroadcast(this, 1001, new Intent(ACTION_PIP_CONTROL).setPackage(getPackageName()), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    builder.setActions(java.util.Collections.singletonList(new RemoteAction(Icon.createWithResource(this, iconRes), label, label, pending)));
+    return builder.build();
+  }
+
+  private void togglePipPlayback() { pipPlaying = !pipPlaying; dispatch("pip-playback", true, pipPlaying ? "play" : "pause", ""); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setPictureInPictureParams(buildPipParams()); }
+
   @SuppressWarnings("deprecation") private void applySystemBars(boolean dark) {
     Window window = getWindow(); int background = Color.parseColor(dark ? "#07140F" : "#F3F8F5"); window.setStatusBarColor(background); window.setNavigationBarColor(background); window.getDecorView().setBackgroundColor(background); getBridge().getWebView().setBackgroundColor(background);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { window.setStatusBarContrastEnforced(false); window.setNavigationBarContrastEnforced(false); }
@@ -458,18 +489,19 @@ public class PersonixPostActivity extends AppCompatActivity {
     boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     int background = Color.parseColor(dark ? "#07140F" : "#F3F8F5");
     int foreground = Color.parseColor(dark ? "#F4FBF7" : "#0A2118");
+    int chip = Color.parseColor(dark ? "#16261E" : "#DEEAE3");
     getWindow().setStatusBarColor(background); getWindow().setNavigationBarColor(background);
     WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
     LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(background);
     LinearLayout toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL); toolbar.setPadding(dp(8), dp(6), dp(8), dp(6)); toolbar.setBackgroundColor(background);
-    Button close = toolbarButton("Close", foreground); close.setContentDescription("Close in-app post viewer"); close.setOnClickListener(view -> finish()); toolbar.addView(close);
+    Button close = toolbarButton("\\u2715 Close", foreground, chip); close.setContentDescription("Close in-app post viewer"); close.setOnClickListener(view -> finish()); toolbar.addView(close);
     LinearLayout labels = new LinearLayout(this); labels.setOrientation(LinearLayout.VERTICAL); labels.setPadding(dp(8), 0, dp(8), 0);
     String requestedTitle = getIntent().getStringExtra(EXTRA_TITLE);
     TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END); title.setText(requestedTitle == null || requestedTitle.trim().isEmpty() ? "Post" : requestedTitle); labels.addView(title);
     TextView domain = new TextView(this); domain.setTextColor(Color.parseColor(dark ? "#A8C0B5" : "#5F756B")); domain.setTextSize(12); domain.setMaxLines(1); domain.setText(Uri.parse(sourceUrl).getHost()); labels.addView(domain);
     toolbar.addView(labels, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-    Button browser = toolbarButton("Browser", foreground); browser.setContentDescription("Open post in browser"); browser.setOnClickListener(view -> openExternal(sourceUrl)); toolbar.addView(browser);
+    Button browser = toolbarButton("Browser \\u2197", foreground, chip); browser.setContentDescription("Open post in browser"); browser.setOnClickListener(view -> openExternal(sourceUrl)); toolbar.addView(browser);
     root.addView(toolbar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
     webView = new WebView(this); webView.setBackgroundColor(background);
@@ -490,7 +522,7 @@ public class PersonixPostActivity extends AppCompatActivity {
     webView.loadUrl(sourceUrl);
   }
 
-  private Button toolbarButton(String text, int colour) { Button button = new Button(this); button.setAllCaps(false); button.setText(text); button.setTextColor(colour); button.setBackgroundColor(Color.TRANSPARENT); button.setMinWidth(0); button.setMinimumWidth(0); return button; }
+  private Button toolbarButton(String text, int colour, int chip) { Button button = new Button(this); button.setAllCaps(false); button.setText(text); button.setTextColor(colour); button.setTextSize(13); button.setTypeface(button.getTypeface(), android.graphics.Typeface.BOLD); android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable(); pill.setCornerRadius(dp(18)); pill.setColor(chip); button.setBackground(pill); button.setPadding(dp(14), dp(7), dp(14), dp(7)); button.setMinWidth(0); button.setMinimumWidth(0); return button; }
   private boolean handleNavigation(Uri uri) { String scheme = uri.getScheme(); if ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) return false; try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { } return true; }
   private void openExternal(String url) { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } }
   private boolean isWebUrl(String url) { if (url == null) return false; String scheme = Uri.parse(url).getScheme(); return "https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme); }
