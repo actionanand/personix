@@ -160,6 +160,9 @@ export function detectContentUrl(raw: string): ContentDetection {
   }
   const mastodonId = extractMastodonStatusId(url);
   if (mastodonId) return result('mastodon-post', 'Mastodon', canonicalUrl, mastodonId);
+  const shoppingPlatform = detectShoppingPlatform(host);
+  if (shoppingPlatform)
+    return result('shopping', shoppingPlatform, canonicalizeShoppingUrl(canonicalUrl));
   return result('website', host || 'Website', canonicalUrl);
 }
 
@@ -469,6 +472,67 @@ function extractMastodonStatusId(url: URL): string | null {
     url.pathname.match(/^\/users\/[^/]+\/statuses\/(\d+)(?:\/|$)/i)?.[1] ??
     null
   );
+}
+
+// Recognizes major shopping/marketplace sites (and their short-link domains) so
+// purchase links are saved as products rather than generic websites.
+function detectShoppingPlatform(host: string): string | null {
+  if (/(^|\.)amazon\.[a-z.]+$/i.test(host) || /(^|\.)amzn\.[a-z.]+$/i.test(host) || host === 'a.co')
+    return 'Amazon';
+  if (/(^|\.)flipkart\.com$/i.test(host) || /(^|\.)fkrt\.[a-z]+$/i.test(host)) return 'Flipkart';
+  if (/(^|\.)meesho\.com$/i.test(host)) return 'Meesho';
+  if (/(^|\.)myntra\.com$/i.test(host)) return 'Myntra';
+  if (/(^|\.)ajio\.com$/i.test(host)) return 'Ajio';
+  if (/(^|\.)snapdeal\.com$/i.test(host)) return 'Snapdeal';
+  if (/(^|\.)nykaa\.com$/i.test(host)) return 'Nykaa';
+  if (/(^|\.)tatacliq\.com$/i.test(host)) return 'Tata CLiQ';
+  return null;
+}
+
+// Marketplace share/short domains that only reveal the product after a redirect.
+export function isShoppingShortLink(raw: string): boolean {
+  try {
+    const url = new URL(ensureUrl(raw));
+    const host = url.hostname.toLocaleLowerCase().replace(/^www\./, '');
+    if (host === 'dl.flipkart.com') return /^\/s\//i.test(url.pathname);
+    if (/(^|\.)fkrt\.[a-z]+$/i.test(host)) return true;
+    if (host === 'amzn.to' || host === 'a.co') return true;
+    if (/(^|\.)amzn\.[a-z.]+$/i.test(host)) return /^\/d\//i.test(url.pathname);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Reduces a marketplace URL to the stable product URL crawlers can read, dropping
+// share/tracking parameters that trigger bot walls (Amazon returns no preview for
+// links carrying ref/social_share query strings).
+export function canonicalizeShoppingUrl(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(ensureUrl(raw));
+  } catch {
+    return ensureUrl(raw);
+  }
+  const host = url.hostname.toLocaleLowerCase().replace(/^www\./, '');
+  if (/(^|\.)amazon\.[a-z.]+$/i.test(host)) {
+    const asin =
+      url.pathname.match(
+        /\/(?:dp|gp\/product|gp\/aw\/d|product)\/([A-Z0-9]{10})(?:[/?]|$)/i,
+      )?.[1] ?? url.pathname.match(/\/([A-Z0-9]{10})(?:[/?]|$)/)?.[1];
+    if (asin) return `https://www.${host}/dp/${asin.toUpperCase()}`;
+  }
+  if (/(^|\.)flipkart\.com$/i.test(host) && /\/p\//i.test(url.pathname)) {
+    const pid = url.searchParams.get('pid');
+    return `${url.origin}${url.pathname}${pid ? `?pid=${pid}` : ''}`;
+  }
+  if (
+    ['meesho.com', 'myntra.com', 'ajio.com', 'snapdeal.com', 'nykaa.com', 'tatacliq.com'].some(
+      (entry) => host === entry || host.endsWith(`.${entry}`),
+    )
+  )
+    return `${url.origin}${url.pathname}`;
+  return url.href;
 }
 
 function buildRedditEmbedUrl(source: string, id: string): string {

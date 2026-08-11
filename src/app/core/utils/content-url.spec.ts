@@ -1,8 +1,10 @@
 import type { SavedContent } from '../models/app.models';
 import {
   buildEmbedUrl,
+  canonicalizeShoppingUrl,
   detectContentUrl,
   isGenericGoogleMapsPreviewImage,
+  isShoppingShortLink,
   isVerticalContent,
 } from './content-url';
 
@@ -332,5 +334,40 @@ describe('content URL utilities', () => {
       platform: 'LinkedIn',
       mediaId: '7191234567890123456',
     });
+  });
+
+  it('detects and canonicalizes marketplace product links', () => {
+    expect(
+      detectContentUrl(
+        'https://www.amazon.in/dp/B07NY23WBG?ref=cm_sw_r_cso_cp_apan_dp_18C8&social_share=cm_sw_r&th=1',
+      ),
+    ).toMatchObject({
+      contentType: 'shopping',
+      platform: 'Amazon',
+      canonicalUrl: 'https://www.amazon.in/dp/B07NY23WBG',
+    });
+    expect(
+      detectContentUrl(
+        'https://www.flipkart.com/goboult-y1-pro/p/itm060482bbcfbbe?pid=ACCHY2JNHFJA3Z3H&lid=LST&marketplace=HYPERLOCAL',
+      ).canonicalUrl,
+    ).toBe('https://www.flipkart.com/goboult-y1-pro/p/itm060482bbcfbbe?pid=ACCHY2JNHFJA3Z3H');
+    expect(detectContentUrl('https://amzn.in/d/09Ejbi5o')).toMatchObject({
+      contentType: 'shopping',
+      platform: 'Amazon',
+    });
+  });
+
+  it('flags marketplace share/short links that need redirect resolution', () => {
+    expect(isShoppingShortLink('https://dl.flipkart.com/s/Txo8H1uuuN')).toBe(true);
+    expect(isShoppingShortLink('https://amzn.in/d/09Ejbi5o')).toBe(true);
+    expect(isShoppingShortLink('https://amzn.to/3abcDEF')).toBe(true);
+    expect(isShoppingShortLink('https://www.amazon.in/dp/B07NY23WBG')).toBe(false);
+    expect(isShoppingShortLink('https://www.flipkart.com/goboult/p/itm1')).toBe(false);
+  });
+
+  it('extracts the Amazon ASIN from gp/product URLs', () => {
+    expect(canonicalizeShoppingUrl('https://www.amazon.com/gp/product/B07NY23WBG/ref=xyz')).toBe(
+      'https://www.amazon.com/dp/B07NY23WBG',
+    );
   });
 });

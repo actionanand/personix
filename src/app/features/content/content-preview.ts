@@ -454,12 +454,12 @@ export class ContentPreview {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly native = inject(NativeIntegrationService);
   private readonly store = inject(AppStore);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly videoElement = viewChild<ElementRef<HTMLVideoElement>>('videoElement');
   protected readonly muted = signal(this.store.settings().muteVideosByDefault);
   protected readonly previewImageFailed = signal(false);
   private lastPreviewImage = '';
   protected readonly nativePipActive = signal(false);
-  private readonly nativePipEmbedSource = signal('');
   protected readonly miniPipUrl = signal<SafeResourceUrl | null>(null);
   protected readonly miniPipPosition = signal<PipPosition | null>(null);
   protected readonly miniPipSize = signal<PipSize | null>(null);
@@ -540,7 +540,7 @@ export class ContentPreview {
       ? { ...item, contentType: 'google-maps' as const }
       : item;
     if (!isEmbeddableContent(embedItem.contentType)) return null;
-    const url = this.nativePipEmbedSource() || buildEmbedUrl(embedItem, this.muted());
+    const url = buildEmbedUrl(embedItem, this.muted());
     return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : this.blueskyEmbedUrl();
   });
 
@@ -645,10 +645,11 @@ export class ContentPreview {
     const source = buildEmbedUrl(item, pipMuted, true);
     if (!source) return;
     if (this.native.isAndroid()) {
-      this.nativePipEmbedSource.set(source);
+      // Keep the current, already-playing embed and only enter native PIP.
+      // Rebuilding the iframe here made Facebook/Instagram re-check embed rights
+      // and fail with "content owned by someone else" inside the PIP window.
       this.nativePipActive.set(true);
       if (await this.native.enterPictureInPicture(width, height)) return;
-      this.nativePipEmbedSource.set('');
       this.nativePipActive.set(false);
     }
     if (item.contentType === 'youtube' || item.contentType === 'youtube-short') {
@@ -848,9 +849,28 @@ export class ContentPreview {
   protected onNativeResult(event: Event): void {
     const detail = (event as CustomEvent<{ readonly action: string; readonly data: string }>)
       .detail;
+    if (detail?.action === 'pip-playback') {
+      this.togglePipPlayback(detail.data === 'play');
+      return;
+    }
     if (detail?.action !== 'pip-mode') return;
-    const active = detail.data === 'true';
-    this.nativePipActive.set(active);
-    if (!active) this.nativePipEmbedSource.set('');
+    this.nativePipActive.set(detail.data === 'true');
+  }
+
+  // Responds to the native picture-in-picture play/pause action. Direct <video>
+  // elements toggle instantly; embedded players are best effort (YouTube honors
+  // the IFrame API command, cross-origin Facebook/Instagram frames cannot).
+  private togglePipPlayback(play: boolean): void {
+    const video = this.videoElement()?.nativeElement;
+    if (video) {
+      if (play) void video.play();
+      else video.pause();
+      return;
+    }
+    const frame = this.host.nativeElement.querySelector('iframe');
+    frame?.contentWindow?.postMessage(
+      JSON.stringify({ event: 'command', func: play ? 'playVideo' : 'pauseVideo', args: [] }),
+      '*',
+    );
   }
 }
