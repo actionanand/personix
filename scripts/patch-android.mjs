@@ -214,12 +214,14 @@ public class MainActivity extends BridgeActivity {
   private static final String KEY_ALIAS = "personix_biometric_key";
   private static final String SECURITY_PREFS = "personix_security";
   private static final String ACTION_PIP_CONTROL = "${appId}.PIP_CONTROL";
+  private static final String ACTION_PIP_MUTE = "${appId}.PIP_MUTE";
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
   private ExportBridge exportBridge;
   private BiometricPrompt biometricPrompt;
   private BroadcastReceiver pipReceiver;
   private boolean pipPlaying = true;
+  private boolean pipMuted = false;
   private int pipWidth = 16;
   private int pipHeight = 9;
   private boolean darkMode;
@@ -239,6 +241,7 @@ public class MainActivity extends BridgeActivity {
     getBridge().getWebView().addJavascriptInterface(new BrowserBridge(), "PersonixBrowser");
     getBridge().getWebView().addJavascriptInterface(exportBridge, "PersonixExport");
     getBridge().getWebView().setBackgroundColor(Color.parseColor(darkMode ? "#07140F" : "#F3F8F5"));
+    getBridge().getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
     registerPipReceiver();
     applyLaunchBars();
   }
@@ -257,7 +260,7 @@ public class MainActivity extends BridgeActivity {
   public class SystemBarsBridge { @JavascriptInterface public void setDarkMode(boolean value) { darkMode = value; runOnUiThread(() -> applySystemBars(value)); } }
   public class PipBridge {
     @JavascriptInterface public boolean isSupported() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O; }
-    @JavascriptInterface public void enter(int width, int height) { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return; pipWidth = Math.max(1, width); pipHeight = Math.max(1, height); pipPlaying = true; runOnUiThread(() -> enterPictureInPictureMode(buildPipParams())); }
+    @JavascriptInterface public void enter(int width, int height, boolean muted) { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return; pipWidth = Math.max(1, width); pipHeight = Math.max(1, height); pipPlaying = true; pipMuted = muted; runOnUiThread(() -> enterPictureInPictureMode(buildPipParams())); }
   }
 
   public class BrowserBridge {
@@ -367,6 +370,7 @@ public class MainActivity extends BridgeActivity {
           URL responseUrl = connection.getURL(); String resolved = first(meta(html, "og:url"), responseUrl.toString()); String facebookResolved = facebookVideoUrl(html); if (isFacebookShare(rawUrl) && !facebookResolved.isEmpty()) resolved = facebookResolved; URL resolvedUrl = new URL(responseUrl, resolved);
           String image = first(meta(html, "og:image"), first(meta(html, "og:image:url"), first(meta(html, "twitter:image"), firstImage(html)))); result.put("image", previewImage(rawUrl, resolvedUrl, image, maxImageBytes)); result.put("imageWidth", positiveInt(first(meta(html, "og:image:width"), meta(html, "twitter:image:width")))); result.put("imageHeight", positiveInt(first(meta(html, "og:image:height"), meta(html, "twitter:image:height")))); result.put("siteName", meta(html, "og:site_name")); result.put("url", resolvedUrl.toString());
           result.put("logo", resolveUrl(url, icon(html))); result.put("maxImageBytes", maxImageBytes);
+          if (isBlockedPreview(result.optString("title"), result.optString("description"), result.optString("image"))) throw new IllegalStateException("The site blocked the link preview.");
           dispatch("metadata-fetch", true, result.toString(), "");
         } catch (Exception error) { dispatch("metadata-fetch", false, "", message(error)); }
         finally { if (connection != null) connection.disconnect(); }
@@ -387,12 +391,16 @@ public class MainActivity extends BridgeActivity {
   private int positiveInt(String value) { try { return Math.max(0, Integer.parseInt(value.trim())); } catch (Exception ignored) { return 0; } }
   private boolean hostEndsWith(String rawUrl, String suffix) { try { String host = new URL(rawUrl).getHost().toLowerCase(); return host.equals(suffix) || host.endsWith("." + suffix); } catch (Exception ignored) { return false; } }
   private boolean isGoogleMapsUrl(String rawUrl) { return hostEndsWith(rawUrl, "maps.app.goo.gl") || hostEndsWith(rawUrl, "maps.google.com") || hostEndsWith(rawUrl, "google.com"); }
-  private boolean prefersPreviewCrawler(String rawUrl) { return hostEndsWith(rawUrl, "facebook.com") || hostEndsWith(rawUrl, "fb.com") || hostEndsWith(rawUrl, "instagram.com") || hostEndsWith(rawUrl, "reddit.com") || isGoogleMapsUrl(rawUrl); }
+  private boolean prefersPreviewCrawler(String rawUrl) { return hostEndsWith(rawUrl, "facebook.com") || hostEndsWith(rawUrl, "fb.com") || hostEndsWith(rawUrl, "instagram.com") || hostEndsWith(rawUrl, "reddit.com") || isGoogleMapsUrl(rawUrl) || isCrawlerFriendlyShop(rawUrl); }
+  private String shopHost(String rawUrl) { try { String host = new URL(rawUrl).getHost().toLowerCase(); return host.startsWith("www.") ? host.substring(4) : host; } catch (Exception ignored) { return ""; } }
+  private boolean isCrawlerFriendlyShop(String rawUrl) { String host = shopHost(rawUrl); return host.contains("amazon.") || host.startsWith("amzn.") || host.equals("a.co") || host.contains("flipkart.") || host.startsWith("fkrt."); }
+  private boolean isShoppingUrl(String rawUrl) { String host = shopHost(rawUrl); return host.contains("amazon.") || host.startsWith("amzn.") || host.equals("a.co") || host.contains("flipkart.") || host.startsWith("fkrt.") || host.contains("meesho.") || host.contains("myntra.") || host.contains("ajio.") || host.contains("snapdeal.") || host.contains("nykaa.") || host.contains("tatacliq."); }
+  private boolean isBlockedPreview(String title, String description, String image) { if (image != null && !image.isEmpty()) return false; String text = ((title == null ? "" : title) + " " + (description == null ? "" : description)).toLowerCase(); return text.contains("access denied") || text.contains("attention required") || text.contains("just a moment") || text.contains("verifying you are human") || text.contains("pardon our interruption") || text.contains("request unsuccessful") || text.contains("are you a robot") || text.contains("please enable cookies"); }
   private boolean isFacebookShare(String rawUrl) { try { return new URL(rawUrl).getPath().matches("(?i).*/share/[rv]/[^/]+/?.*"); } catch (Exception ignored) { return false; } }
   private String facebookVideoUrl(String html) { String normalized = html.replace("\\\\/", "/"); Matcher match = Pattern.compile("https?://(?:www\\\\.|m\\\\.)facebook\\\\.com/[^\\\\s<>]+", Pattern.CASE_INSENSITIVE).matcher(normalized); while (match.find()) { String candidate = decode(match.group()).replaceAll("[\\\"'&].*$", ""); String lower = candidate.toLowerCase(); if (lower.contains("/reel/") || lower.contains("/videos/") || lower.contains("/watch/?v=")) return candidate; } return ""; }
   private boolean genericGoogleMapsImage(String rawUrl) { String lower = rawUrl.toLowerCase(); return lower.contains("/branding/product/") || lower.contains("google_maps") || lower.contains("maps_96in128dp") || lower.contains("maps_64dp") || lower.contains("maps_app_icon"); }
-  private String previewImage(String sourceUrl, URL base, String rawImage, int requestedMaximum) { String image = resolveUrl(base, rawImage); if (image.isEmpty() || (isGoogleMapsUrl(sourceUrl) && genericGoogleMapsImage(image))) return ""; if (!prefersPreviewCrawler(sourceUrl)) return image; String inlined = inlineImage(image, requestedMaximum); return inlined.isEmpty() ? image : inlined; }
-  private String inlineImage(String rawUrl, int requestedMaximum) { HttpURLConnection connection = null; try { int maximum = Math.max(65536, Math.min(requestedMaximum, 3 * 1024 * 1024)); connection = (HttpURLConnection) new URL(rawUrl).openConnection(); connection.setInstanceFollowRedirects(true); connection.setConnectTimeout(15000); connection.setReadTimeout(20000); connection.setRequestProperty("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"); connection.setRequestProperty("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"); int status = connection.getResponseCode(); if (status < 200 || status >= 300) return ""; String type = connection.getContentType(); if (type == null || !type.toLowerCase().startsWith("image/")) return ""; byte[] bytes = readLimited(connection.getInputStream(), maximum + 1); if (bytes.length == 0 || bytes.length > maximum) return ""; return "data:" + type.split(";")[0].trim() + ";base64," + Base64.encodeToString(bytes, Base64.NO_WRAP); } catch (Exception ignored) { return ""; } finally { if (connection != null) connection.disconnect(); } }
+  private String previewImage(String sourceUrl, URL base, String rawImage, int requestedMaximum) { String image = resolveUrl(base, rawImage); if (image.isEmpty() || (isGoogleMapsUrl(sourceUrl) && genericGoogleMapsImage(image))) return ""; if (!prefersPreviewCrawler(sourceUrl) && !isShoppingUrl(sourceUrl)) return image; String inlined = inlineImage(image, requestedMaximum); return inlined.isEmpty() ? image : inlined; }
+  private String inlineImage(String rawUrl, int requestedMaximum) { HttpURLConnection connection = null; try { int maximum = Math.max(65536, Math.min(requestedMaximum, 3 * 1024 * 1024)); connection = (HttpURLConnection) new URL(rawUrl).openConnection(); connection.setInstanceFollowRedirects(true); connection.setConnectTimeout(15000); connection.setReadTimeout(20000); connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"); int status = connection.getResponseCode(); if (status < 200 || status >= 300) return ""; String type = connection.getContentType(); if (type == null || !type.toLowerCase().startsWith("image/")) return ""; byte[] bytes = readLimited(connection.getInputStream(), maximum + 1); if (bytes.length == 0 || bytes.length > maximum) return ""; return "data:" + type.split(";")[0].trim() + ";base64," + Base64.encodeToString(bytes, Base64.NO_WRAP); } catch (Exception ignored) { return ""; } finally { if (connection != null) connection.disconnect(); } }
   private Uri requireWebUri(String rawUrl) { Uri uri = Uri.parse(rawUrl); String scheme = uri.getScheme(); if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) throw new IllegalArgumentException("Only web URLs can be opened."); return uri; }
   private void openWebUri(String rawUrl) { try { startActivity(new Intent(Intent.ACTION_VIEW, requireWebUri(rawUrl))); } catch (Exception ignored) { } }
 
@@ -422,22 +430,28 @@ public class MainActivity extends BridgeActivity {
 
   private void registerPipReceiver() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || pipReceiver != null) return;
-    pipReceiver = new BroadcastReceiver() { @Override public void onReceive(Context context, Intent intent) { if (intent != null && ACTION_PIP_CONTROL.equals(intent.getAction())) togglePipPlayback(); } };
-    IntentFilter filter = new IntentFilter(ACTION_PIP_CONTROL);
+    pipReceiver = new BroadcastReceiver() { @Override public void onReceive(Context context, Intent intent) { if (intent == null) return; if (ACTION_PIP_CONTROL.equals(intent.getAction())) togglePipPlayback(); else if (ACTION_PIP_MUTE.equals(intent.getAction())) togglePipMute(); } };
+    IntentFilter filter = new IntentFilter(); filter.addAction(ACTION_PIP_CONTROL); filter.addAction(ACTION_PIP_MUTE);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) registerReceiver(pipReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     else registerReceiver(pipReceiver, filter);
   }
 
   private PictureInPictureParams buildPipParams() {
     PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder().setAspectRatio(new Rational(Math.max(1, pipWidth), Math.max(1, pipHeight)));
-    int iconRes = pipPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
-    String label = pipPlaying ? "Pause" : "Play";
-    PendingIntent pending = PendingIntent.getBroadcast(this, 1001, new Intent(ACTION_PIP_CONTROL).setPackage(getPackageName()), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-    builder.setActions(java.util.Collections.singletonList(new RemoteAction(Icon.createWithResource(this, iconRes), label, label, pending)));
+    java.util.ArrayList<RemoteAction> actions = new java.util.ArrayList<>();
+    actions.add(buildPipAction(ACTION_PIP_MUTE, 1002, pipMuted ? android.R.drawable.ic_lock_silent_mode : android.R.drawable.ic_lock_silent_mode_off, pipMuted ? "Unmute" : "Mute"));
+    actions.add(buildPipAction(ACTION_PIP_CONTROL, 1001, pipPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play, pipPlaying ? "Pause" : "Play"));
+    builder.setActions(actions);
     return builder.build();
   }
 
+  private RemoteAction buildPipAction(String action, int requestCode, int iconRes, String label) {
+    PendingIntent pending = PendingIntent.getBroadcast(this, requestCode, new Intent(action).setPackage(getPackageName()), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    return new RemoteAction(Icon.createWithResource(this, iconRes), label, label, pending);
+  }
+
   private void togglePipPlayback() { pipPlaying = !pipPlaying; dispatch("pip-playback", true, pipPlaying ? "play" : "pause", ""); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setPictureInPictureParams(buildPipParams()); }
+  private void togglePipMute() { pipMuted = !pipMuted; dispatch("pip-mute", true, pipMuted ? "muted" : "unmuted", ""); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setPictureInPictureParams(buildPipParams()); }
 
   @SuppressWarnings("deprecation") private void applySystemBars(boolean dark) {
     Window window = getWindow(); int background = Color.parseColor(dark ? "#07140F" : "#F3F8F5"); window.setStatusBarColor(background); window.setNavigationBarColor(background); window.getDecorView().setBackgroundColor(background); getBridge().getWebView().setBackgroundColor(background);
@@ -495,13 +509,12 @@ public class PersonixPostActivity extends AppCompatActivity {
 
     LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(background);
     LinearLayout toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL); toolbar.setPadding(dp(8), dp(6), dp(8), dp(6)); toolbar.setBackgroundColor(background);
-    Button close = toolbarButton("\\u2715 Close", foreground, chip); close.setContentDescription("Close in-app post viewer"); close.setOnClickListener(view -> finish()); toolbar.addView(close);
+    Button close = toolbarButton("\\u2715", foreground, chip); close.setContentDescription("Close in-app post viewer"); close.setOnClickListener(view -> finish()); toolbar.addView(close);
     LinearLayout labels = new LinearLayout(this); labels.setOrientation(LinearLayout.VERTICAL); labels.setPadding(dp(8), 0, dp(8), 0);
     String requestedTitle = getIntent().getStringExtra(EXTRA_TITLE);
     TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END); title.setText(requestedTitle == null || requestedTitle.trim().isEmpty() ? "Post" : requestedTitle); labels.addView(title);
     TextView domain = new TextView(this); domain.setTextColor(Color.parseColor(dark ? "#A8C0B5" : "#5F756B")); domain.setTextSize(12); domain.setMaxLines(1); domain.setText(Uri.parse(sourceUrl).getHost()); labels.addView(domain);
     toolbar.addView(labels, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-    Button browser = toolbarButton("Browser \\u2197", foreground, chip); browser.setContentDescription("Open post in browser"); browser.setOnClickListener(view -> openExternal(sourceUrl)); toolbar.addView(browser);
     root.addView(toolbar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
     webView = new WebView(this); webView.setBackgroundColor(background);

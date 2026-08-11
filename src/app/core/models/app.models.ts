@@ -361,6 +361,7 @@ export interface BackupEnvelope {
   readonly version: 1;
   readonly createdAt: string;
   readonly appVersion: string;
+  readonly compression?: 'gzip';
   readonly salt: string;
   readonly iterations: number;
   readonly iv: string;

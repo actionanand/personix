@@ -558,7 +558,8 @@ export class ContentPreview {
     effect(() => {
       const source = this.blueskyPostUrl();
       this.blueskyEmbedUrl.set(null);
-      if (source) void this.resolveBlueskyEmbed(source);
+      // Android stays on-device: skip the Bluesky oEmbed call and use the native preview.
+      if (source && !this.native.isAndroid()) void this.resolveBlueskyEmbed(source);
     });
   }
 
@@ -649,7 +650,10 @@ export class ContentPreview {
       // Rebuilding the iframe here made Facebook/Instagram re-check embed rights
       // and fail with "content owned by someone else" inside the PIP window.
       this.nativePipActive.set(true);
-      if (await this.native.enterPictureInPicture(width, height)) return;
+      if (await this.native.enterPictureInPicture(width, height, pipMuted)) {
+        this.startPipPlayback(pipMuted);
+        return;
+      }
       this.nativePipActive.set(false);
     }
     if (item.contentType === 'youtube' || item.contentType === 'youtube-short') {
@@ -853,24 +857,51 @@ export class ContentPreview {
       this.togglePipPlayback(detail.data === 'play');
       return;
     }
+    if (detail?.action === 'pip-mute') {
+      this.togglePipMute(detail.data === 'muted');
+      return;
+    }
     if (detail?.action !== 'pip-mode') return;
     this.nativePipActive.set(detail.data === 'true');
   }
 
-  // Responds to the native picture-in-picture play/pause action. Direct <video>
-  // elements toggle instantly; embedded players are best effort (YouTube honors
-  // the IFrame API command, cross-origin Facebook/Instagram frames cannot).
+  // Starts playback when native PIP opens (the PIP tap is a user gesture). Direct
+  // <video> plays immediately; YouTube honors the IFrame API command. Cross-origin
+  // Facebook/Instagram frames cannot be started without reloading (which breaks
+  // their embed rights), so they keep whatever state they had.
+  private startPipPlayback(muted: boolean): void {
+    const video = this.videoElement()?.nativeElement;
+    if (video) {
+      video.muted = muted;
+      void video.play().catch(() => undefined);
+      return;
+    }
+    this.postToEmbed('playVideo');
+    this.postToEmbed(muted ? 'mute' : 'unMute');
+  }
+
   private togglePipPlayback(play: boolean): void {
     const video = this.videoElement()?.nativeElement;
     if (video) {
-      if (play) void video.play();
+      if (play) void video.play().catch(() => undefined);
       else video.pause();
       return;
     }
+    this.postToEmbed(play ? 'playVideo' : 'pauseVideo');
+  }
+
+  private togglePipMute(mute: boolean): void {
+    const video = this.videoElement()?.nativeElement;
+    if (video) {
+      video.muted = mute;
+      this.muted.set(mute);
+      return;
+    }
+    this.postToEmbed(mute ? 'mute' : 'unMute');
+  }
+
+  private postToEmbed(func: string): void {
     const frame = this.host.nativeElement.querySelector('iframe');
-    frame?.contentWindow?.postMessage(
-      JSON.stringify({ event: 'command', func: play ? 'playVideo' : 'pauseVideo', args: [] }),
-      '*',
-    );
+    frame?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
   }
 }

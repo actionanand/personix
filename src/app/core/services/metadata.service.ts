@@ -130,6 +130,8 @@ export class MetadataService {
   }
 
   private async browserResponse(url: string, settings: AppSettings): Promise<ThirdPartyResponse> {
+    // Android must stay fully on-device: OG data comes from the native fetcher only.
+    if (this.native.isAndroid()) throw new Error('Third-party metadata is not used on Android.');
     const endpoint = new URL(
       settings.browserMetadataServiceUrl.trim() || 'https://api.microlink.io/',
     );
@@ -200,6 +202,8 @@ export class MetadataService {
     result: NativeMetadataResult,
     source: MetadataPatch['metadataSource'],
   ): MetadataPatch {
+    if (this.looksBlocked(result))
+      return this.failure(new Error('The site blocked the link preview (bot protection).'), source);
     const aspectRatio = this.aspectRatio({
       width: result.imageWidth,
       height: result.imageHeight,
@@ -217,6 +221,23 @@ export class MetadataService {
       metadataSource: source,
       resolvedUrl: this.safeUrl(result.url),
     };
+  }
+
+  // Bot managers (Akamai/Cloudflare/PerimeterX) answer with a challenge page on a
+  // 2xx status; with no image and one of these titles it is not real content.
+  private looksBlocked(result: NativeMetadataResult): boolean {
+    if (this.safeImage(result.image)) return false;
+    const text = `${result.title ?? ''} ${result.description ?? ''}`.toLocaleLowerCase();
+    return [
+      'access denied',
+      'attention required',
+      'just a moment',
+      'verifying you are human',
+      'pardon our interruption',
+      'request unsuccessful',
+      'are you a robot',
+      'please enable cookies',
+    ].some((phrase) => text.includes(phrase));
   }
 
   private failure(error: unknown, source: MetadataPatch['metadataSource']): MetadataPatch {

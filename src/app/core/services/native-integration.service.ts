@@ -64,9 +64,9 @@ export class NativeIntegrationService {
     }
   }
 
-  async enterPictureInPicture(width: number, height: number): Promise<boolean> {
+  async enterPictureInPicture(width: number, height: number, muted: boolean): Promise<boolean> {
     if (!this.isAndroid() || window.PersonixPip?.isSupported() !== true) return false;
-    window.PersonixPip.enter(Math.max(1, width), Math.max(1, height));
+    window.PersonixPip.enter(Math.max(1, width), Math.max(1, height), muted);
     return true;
   }
 

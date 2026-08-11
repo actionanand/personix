@@ -16,7 +16,7 @@
       </button>
     } @else {
       <button type="button" class="button header-save-content" (click)="openAdd()">
-        <app-icon name="plus" /> Save content
+        <span class="material-symbols-rounded" aria-hidden="true">add_link</span> Save content
       </button>
     }
   </div>
@@ -498,23 +498,25 @@
         >
           <app-icon name="chevron-left" />
         </button>
-        @for (token of paginationTokens(); track token.key) {
-          @if (token.page; as page) {
-            <button
-              type="button"
-              class="page-button"
-              [class.active]="page === currentPage()"
-              [attr.aria-current]="page === currentPage() ? 'page' : null"
-              [attr.aria-label]="'Page ' + page"
-              [disabled]="loading()"
-              (click)="goToPage(page)"
-            >
-              {{ page }}
-            </button>
-          } @else {
-            <span class="page-ellipsis" aria-hidden="true">…</span>
+        <div class="page-numbers">
+          @for (token of paginationTokens(); track token.key) {
+            @if (token.page; as page) {
+              <button
+                type="button"
+                class="page-button"
+                [class.active]="page === currentPage()"
+                [attr.aria-current]="page === currentPage() ? 'page' : null"
+                [attr.aria-label]="'Page ' + page"
+                [disabled]="loading()"
+                (click)="goToPage(page)"
+              >
+                {{ page }}
+              </button>
+            } @else {
+              <span class="page-ellipsis" aria-hidden="true">…</span>
+            }
           }
-        }
+        </div>
         <button
           type="button"
           class="page-button page-control next-page"
