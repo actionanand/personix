@@ -68,7 +68,7 @@ interface BlueskyOEmbedResponse {
   },
   template: `
     @if (nativePipActive()) {
-      <button type="button" class="exit-pip" (click)="nativePipActive.set(false)">
+      <button type="button" class="exit-pip" (click)="exitNativePip()">
         <app-icon name="close" /> Exit PIP view
       </button>
     }
@@ -450,6 +450,8 @@ interface BlueskyOEmbedResponse {
 })
 export class ContentPreview {
   private static readonly blueskyEmbedCache = new Map<string, Promise<string>>();
+  // Native PIP events broadcast to every preview on the page; only this owner reacts.
+  private static activePipOwner: ContentPreview | null = null;
   readonly item = input.required<SavedContent>();
   private readonly sanitizer = inject(DomSanitizer);
   private readonly native = inject(NativeIntegrationService);
@@ -649,11 +651,13 @@ export class ContentPreview {
       // Keep the current, already-playing embed and only enter native PIP.
       // Rebuilding the iframe here made Facebook/Instagram re-check embed rights
       // and fail with "content owned by someone else" inside the PIP window.
+      ContentPreview.activePipOwner = this;
       this.nativePipActive.set(true);
       if (await this.native.enterPictureInPicture(width, height, pipMuted)) {
         this.startPipPlayback(pipMuted);
         return;
       }
+      ContentPreview.activePipOwner = null;
       this.nativePipActive.set(false);
     }
     if (item.contentType === 'youtube' || item.contentType === 'youtube-short') {
@@ -850,19 +854,28 @@ export class ContentPreview {
         return null;
     }
   }
+  protected exitNativePip(): void {
+    this.nativePipActive.set(false);
+    if (ContentPreview.activePipOwner === this) ContentPreview.activePipOwner = null;
+  }
+
   protected onNativeResult(event: Event): void {
     const detail = (event as CustomEvent<{ readonly action: string; readonly data: string }>)
       .detail;
-    if (detail?.action === 'pip-playback') {
+    // Ignore events meant for a different card's PIP session.
+    if (!detail || ContentPreview.activePipOwner !== this) return;
+    if (detail.action === 'pip-playback') {
       this.togglePipPlayback(detail.data === 'play');
       return;
     }
-    if (detail?.action === 'pip-mute') {
+    if (detail.action === 'pip-mute') {
       this.togglePipMute(detail.data === 'muted');
       return;
     }
-    if (detail?.action !== 'pip-mode') return;
-    this.nativePipActive.set(detail.data === 'true');
+    if (detail.action !== 'pip-mode') return;
+    const active = detail.data === 'true';
+    this.nativePipActive.set(active);
+    if (!active) ContentPreview.activePipOwner = null;
   }
 
   // Starts playback when native PIP opens (the PIP tap is a user gesture). Direct

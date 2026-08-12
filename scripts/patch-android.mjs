@@ -186,6 +186,9 @@ import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
@@ -372,7 +375,7 @@ public class MainActivity extends BridgeActivity {
           result.put("logo", resolveUrl(url, icon(html))); result.put("maxImageBytes", maxImageBytes);
           if (isBlockedPreview(result.optString("title"), result.optString("description"), result.optString("image"))) throw new IllegalStateException("The site blocked the link preview.");
           dispatch("metadata-fetch", true, result.toString(), "");
-        } catch (Exception error) { dispatch("metadata-fetch", false, "", message(error)); }
+        } catch (Exception error) { if (isShoppingUrl(rawUrl)) fetchViaWebView(rawUrl, timeoutMs, maxImageBytes); else dispatch("metadata-fetch", false, "", message(error)); }
         finally { if (connection != null) connection.disconnect(); }
       });
     }
@@ -427,6 +430,63 @@ public class MainActivity extends BridgeActivity {
 
   private void dispatch(String action, boolean success, String data, String error) { runOnUiThread(() -> { if (isFinishing() || getBridge() == null) return; String script = "window.dispatchEvent(new CustomEvent('personix-native-result',{detail:{action:" + JSONObject.quote(action) + ",success:" + success + ",data:" + JSONObject.quote(data == null ? "" : data) + ",message:" + JSONObject.quote(error == null ? "" : error) + "}}));"; getBridge().getWebView().evaluateJavascript(script, null); }); }
   private String message(Exception error) { return error.getMessage() == null ? "Android request failed." : error.getMessage(); }
+
+  // Bot managers (e.g. Meesho/Akamai) reject HttpURLConnection because they fingerprint the
+  // TLS/HTTP2 handshake and require the JS sensor to run. A genuine off-screen WebView (a full
+  // Chromium engine with a real viewport) passes those checks, so we render the page here and
+  // read the Open Graph tags once they appear. No third-party API is used.
+  private void fetchViaWebView(String rawUrl, int timeoutMs, int maxImageBytes) {
+    runOnUiThread(() -> {
+      final java.util.concurrent.atomic.AtomicBoolean settled = new java.util.concurrent.atomic.AtomicBoolean(false);
+      final WebView web;
+      try { web = new WebView(MainActivity.this); } catch (Exception error) { dispatch("metadata-fetch", false, "", message(error)); return; }
+      final Runnable cleanup = () -> { try { if (web.getParent() instanceof ViewGroup) ((ViewGroup) web.getParent()).removeView(web); web.stopLoading(); web.loadUrl("about:blank"); web.destroy(); } catch (Exception ignored) { } };
+      final Runnable[] pollRef = new Runnable[1];
+      final Runnable failNow = () -> { if (settled.compareAndSet(false, true)) { mainHandler.removeCallbacks(pollRef[0]); cleanup.run(); dispatch("metadata-fetch", false, "", "The site blocked the link preview."); } };
+      WebSettings ws = web.getSettings();
+      ws.setJavaScriptEnabled(true); ws.setDomStorageEnabled(true); ws.setDatabaseEnabled(true); ws.setLoadWithOverviewMode(true); ws.setUseWideViewPort(true);
+      ws.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36");
+      // Attach off-screen at real screen size so the bot sensor sees a genuine viewport.
+      int screenW = Math.max(1, getResources().getDisplayMetrics().widthPixels);
+      int screenH = Math.max(1, getResources().getDisplayMetrics().heightPixels);
+      web.setTranslationX(screenW + 200f);
+      try { addContentView(web, new FrameLayout.LayoutParams(screenW, screenH)); } catch (Exception ignored) { }
+      final long deadline = System.currentTimeMillis() + Math.max(15000, timeoutMs * 3);
+      final String js = "(function(){var o={},M=document.getElementsByTagName('meta'),i,e,k;for(i=0;i<M.length;i++){e=M[i];k=e.getAttribute('property')||e.getAttribute('name');if(k){o[k]=e.getAttribute('content')||'';}}return JSON.stringify({title:o['og:title']||'',description:o['og:description']||o['description']||'',image:o['og:image']||o['og:image:url']||o['twitter:image']||'',siteName:o['og:site_name']||'',doc:document.title||'',url:location.href});})()";
+      pollRef[0] = () -> {
+        if (settled.get()) return;
+        web.evaluateJavascript(js, value -> {
+          if (settled.get()) return;
+          String json = value;
+          try { if (json != null && json.length() >= 2 && json.charAt(0) == '"') json = new JSONObject("{\"v\":" + json + "}").getString("v"); } catch (Exception ignored) { json = ""; }
+          JSONObject parsed;
+          try { parsed = (json == null || json.isEmpty() || "null".equals(json)) ? new JSONObject() : new JSONObject(json); } catch (Exception ignored) { parsed = new JSONObject(); }
+          final String ogTitle = parsed.optString("title"); final String docTitle = parsed.optString("doc"); final String description = parsed.optString("description"); final String image = parsed.optString("image"); final String siteName = parsed.optString("siteName"); final String finalUrl = parsed.optString("url", rawUrl);
+          final String title = ogTitle.isEmpty() ? docTitle : ogTitle;
+          boolean ready = (!ogTitle.isEmpty() || !image.isEmpty()) && !isBlockedPreview(title, description, image);
+          if (ready) {
+            if (!settled.compareAndSet(false, true)) return;
+            cleanup.run();
+            networkExecutor.execute(() -> {
+              try {
+                JSONObject out = new JSONObject(); URL base = new URL(finalUrl);
+                out.put("title", title); out.put("description", description); out.put("image", previewImage(finalUrl, base, image, maxImageBytes)); out.put("siteName", siteName); out.put("url", finalUrl); out.put("maxImageBytes", maxImageBytes);
+                dispatch("metadata-fetch", true, out.toString(), "");
+              } catch (Exception error) { dispatch("metadata-fetch", false, "", message(error)); }
+            });
+            return;
+          }
+          if (System.currentTimeMillis() > deadline) { failNow.run(); return; }
+          mainHandler.postDelayed(pollRef[0], 700);
+        });
+      };
+      web.setWebViewClient(new WebViewClient() {
+        @Override public void onPageFinished(WebView view, String pageUrl) { mainHandler.removeCallbacks(pollRef[0]); mainHandler.postDelayed(pollRef[0], 900); }
+      });
+      try { web.loadUrl(rawUrl); } catch (Exception error) { if (settled.compareAndSet(false, true)) { cleanup.run(); dispatch("metadata-fetch", false, "", message(error)); return; } }
+      mainHandler.postDelayed(failNow, Math.max(16000, timeoutMs * 3 + 2000));
+    });
+  }
 
   private void registerPipReceiver() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || pipReceiver != null) return;
@@ -503,7 +563,9 @@ public class PersonixPostActivity extends AppCompatActivity {
     boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     int background = Color.parseColor(dark ? "#07140F" : "#F3F8F5");
     int foreground = Color.parseColor(dark ? "#F4FBF7" : "#0A2118");
-    int chip = Color.parseColor(dark ? "#16261E" : "#DEEAE3");
+    int chip = Color.parseColor(dark ? "#16261E" : "#E1F5EA");
+    int browserBg = Color.parseColor(dark ? "#5ED39A" : "#168257");
+    int browserText = Color.parseColor(dark ? "#07140F" : "#FFFFFF");
     getWindow().setStatusBarColor(background); getWindow().setNavigationBarColor(background);
     WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
@@ -515,6 +577,7 @@ public class PersonixPostActivity extends AppCompatActivity {
     TextView title = new TextView(this); title.setTextColor(foreground); title.setTextSize(16); title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END); title.setText(requestedTitle == null || requestedTitle.trim().isEmpty() ? "Post" : requestedTitle); labels.addView(title);
     TextView domain = new TextView(this); domain.setTextColor(Color.parseColor(dark ? "#A8C0B5" : "#5F756B")); domain.setTextSize(12); domain.setMaxLines(1); domain.setText(Uri.parse(sourceUrl).getHost()); labels.addView(domain);
     toolbar.addView(labels, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+    Button browser = toolbarButton("\\u2197 Browser", browserText, browserBg); browser.setContentDescription("Open in external browser"); browser.setOnClickListener(view -> openExternal(sourceUrl)); toolbar.addView(browser);
     root.addView(toolbar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
     webView = new WebView(this); webView.setBackgroundColor(background);
