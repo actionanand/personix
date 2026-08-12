@@ -263,11 +263,13 @@ export class MetadataService {
 
   private safeImage(value?: string): string {
     if (!value) return '';
+    // Natively inlined previews arrive as data:image/...;base64 URIs.
+    if (value.startsWith('data:image/')) return value;
     try {
       const url = new URL(value);
       return url.protocol === 'https:' ? url.href : '';
     } catch {
-      return value.startsWith('data:image/') ? value : '';
+      return '';
     }
   }
 
