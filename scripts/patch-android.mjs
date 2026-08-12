@@ -458,7 +458,7 @@ public class MainActivity extends BridgeActivity {
         web.evaluateJavascript(js, value -> {
           if (settled.get()) return;
           String json = value;
-          try { if (json != null && json.length() >= 2 && json.charAt(0) == '"') json = new JSONObject("{\"v\":" + json + "}").getString("v"); } catch (Exception ignored) { json = ""; }
+          try { Object decoded = new org.json.JSONTokener(json == null ? "\\"\\"" : json).nextValue(); json = (decoded instanceof String) ? (String) decoded : ""; } catch (Exception ignored) { json = ""; }
           JSONObject parsed;
           try { parsed = (json == null || json.isEmpty() || "null".equals(json)) ? new JSONObject() : new JSONObject(json); } catch (Exception ignored) { parsed = new JSONObject(); }
           final String ogTitle = parsed.optString("title"); final String docTitle = parsed.optString("doc"); final String description = parsed.optString("description"); final String image = parsed.optString("image"); final String siteName = parsed.optString("siteName"); final String finalUrl = parsed.optString("url", rawUrl);
