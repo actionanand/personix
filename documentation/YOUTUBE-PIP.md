@@ -85,6 +85,23 @@ The mini-player supports:
 
 Native HTML video uses the browser's video PiP API when available. Other supported iframe providers may use Document PiP because they do not exhibit YouTube's referrer rejection. If Document PiP is unavailable or fails, Personix falls back to Android activity PiP or the in-app mini-player as appropriate.
 
+### PiP play/pause and mute controls
+
+Android native PiP adds two `RemoteAction` buttons (play/pause and mute) that
+dispatch `pip-playback` and `pip-mute` back to the active `ContentPreview`. For a
+native `<video>` element these directly set `video.play()`/`video.pause()` and
+`video.muted`, so they work reliably.
+
+For cross-origin provider iframes (YouTube, Instagram, Facebook) the controls are
+**best-effort only**. Personix posts the YouTube IFrame API handshake
+(`{ event: 'listening' }`) followed by the command (`{ event: 'command', func }`)
+to the iframe's `contentWindow`. YouTube may honour this when its API is ready,
+but Instagram and Facebook embeds do not expose a scriptable player, so their PiP
+buttons cannot control playback. This is a platform sandbox limitation: the app
+cannot script or read a video inside a cross-origin iframe. Only the owning
+`ContentPreview` (tracked via the static `activePipOwner`) reacts to a PiP event,
+so controls never leak to other cards.
+
 ## Files involved
 
 | File                                                  | Responsibility                                      |

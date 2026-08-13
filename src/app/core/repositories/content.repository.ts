@@ -8,6 +8,7 @@ import {
   Page,
   PageCursor,
   SavedContent,
+  contentTypeMatchesFilter,
   isVideoContentType,
   newId,
   normalizeText,
@@ -51,7 +52,7 @@ export class ContentRepository {
           : !isVideoContentType(item.contentType),
       )
       .filter((item) => !showAdult || !filters.adultOnly || item.adult)
-      .filter((item) => !filters.contentType || item.contentType === filters.contentType)
+      .filter((item) => contentTypeMatchesFilter(item.contentType, filters.contentType))
       .filter((item) => !filters.platform || item.platform === filters.platform)
       .filter((item) => !filters.categoryId || item.categoryId === filters.categoryId)
       .filter((item) => !filters.tagId || item.tagIds.includes(filters.tagId))

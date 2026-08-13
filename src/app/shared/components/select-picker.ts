@@ -16,6 +16,7 @@ export interface SelectPickerOption {
   readonly detail?: string;
   readonly icon?: string;
   readonly disabled?: boolean;
+  readonly children?: readonly SelectPickerOption[];
 }
 
 @Component({
@@ -61,28 +62,86 @@ export interface SelectPickerOption {
           </header>
           <div role="listbox" [attr.aria-label]="sheetTitle()">
             @for (option of options(); track option.value) {
-              <button
-                type="button"
-                class="picker-option"
-                [class.selected]="option.value === value()"
-                [disabled]="option.disabled"
-                role="option"
-                [attr.aria-selected]="option.value === value()"
-                (click)="select(option.value)"
-              >
-                @if (option.icon) {
-                  <span class="option-icon"><app-icon [name]="option.icon" /></span>
-                }
-                <span class="option-copy"
-                  ><strong>{{ option.label }}</strong>
-                  @if (option.detail) {
-                    <small>{{ option.detail }}</small>
+              @if (option.children; as children) {
+                <div class="picker-parent">
+                  <button
+                    type="button"
+                    class="picker-option"
+                    [class.selected]="option.value === value()"
+                    role="option"
+                    [attr.aria-selected]="option.value === value()"
+                    (click)="select(option.value)"
+                  >
+                    @if (option.icon) {
+                      <span class="option-icon"><app-icon [name]="option.icon" /></span>
+                    }
+                    <span class="option-copy"
+                      ><strong>{{ option.label }}</strong>
+                      @if (option.detail) {
+                        <small>{{ option.detail }}</small>
+                      }
+                    </span>
+                    @if (option.value === value()) {
+                      <app-icon class="option-check" name="check" />
+                    }
+                  </button>
+                  <button
+                    type="button"
+                    class="picker-expand"
+                    [class.open]="isExpanded(option.value)"
+                    [attr.aria-expanded]="isExpanded(option.value)"
+                    [attr.aria-label]="
+                      (isExpanded(option.value) ? 'Hide ' : 'Show ') + option.label + ' types'
+                    "
+                    (click)="toggleExpanded(option.value, $event)"
+                  >
+                    <app-icon name="chevron-down" />
+                  </button>
+                </div>
+                @if (isExpanded(option.value)) {
+                  @for (child of children; track child.value) {
+                    <button
+                      type="button"
+                      class="picker-option picker-child"
+                      [class.selected]="child.value === value()"
+                      [disabled]="child.disabled"
+                      role="option"
+                      [attr.aria-selected]="child.value === value()"
+                      (click)="select(child.value)"
+                    >
+                      <span class="option-copy"
+                        ><strong>{{ child.label }}</strong></span
+                      >
+                      @if (child.value === value()) {
+                        <app-icon class="option-check" name="check" />
+                      }
+                    </button>
                   }
-                </span>
-                @if (option.value === value()) {
-                  <app-icon class="option-check" name="check" />
                 }
-              </button>
+              } @else {
+                <button
+                  type="button"
+                  class="picker-option"
+                  [class.selected]="option.value === value()"
+                  [disabled]="option.disabled"
+                  role="option"
+                  [attr.aria-selected]="option.value === value()"
+                  (click)="select(option.value)"
+                >
+                  @if (option.icon) {
+                    <span class="option-icon"><app-icon [name]="option.icon" /></span>
+                  }
+                  <span class="option-copy"
+                    ><strong>{{ option.label }}</strong>
+                    @if (option.detail) {
+                      <small>{{ option.detail }}</small>
+                    }
+                  </span>
+                  @if (option.value === value()) {
+                    <app-icon class="option-check" name="check" />
+                  }
+                </button>
+              }
             }
           </div>
         </section>
@@ -101,10 +160,17 @@ export class SelectPicker implements ControlValueAccessor {
   readonly compact = input(false, { transform: booleanAttribute });
   readonly open = signal(false);
   readonly formDisabled = signal(false);
+  readonly expanded = signal<ReadonlySet<string>>(new Set());
   readonly isDisabled = computed(() => this.disabled() || this.formDisabled());
-  readonly selectedOption = computed(() =>
-    this.options().find((option) => option.value === this.value()),
-  );
+  readonly selectedOption = computed(() => {
+    const current = this.value();
+    for (const option of this.options()) {
+      if (option.value === current) return option;
+      const child = option.children?.find((entry) => entry.value === current);
+      if (child) return child;
+    }
+    return undefined;
+  });
   private onChange: (value: string) => void = () => undefined;
   private onTouched: () => void = () => undefined;
 
@@ -122,7 +188,23 @@ export class SelectPicker implements ControlValueAccessor {
   }
 
   show(): void {
-    if (!this.isDisabled()) this.open.set(true);
+    if (this.isDisabled()) return;
+    const current = this.value();
+    const parents = this.options()
+      .filter((option) => option.children?.some((child) => child.value === current))
+      .map((option) => option.value);
+    if (parents.length) this.expanded.update((set) => new Set([...set, ...parents]));
+    this.open.set(true);
+  }
+  isExpanded(value: string): boolean {
+    return this.expanded().has(value);
+  }
+  toggleExpanded(value: string, event: Event): void {
+    event.stopPropagation();
+    const next = new Set(this.expanded());
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    this.expanded.set(next);
   }
   close(): void {
     if (this.open()) this.onTouched();

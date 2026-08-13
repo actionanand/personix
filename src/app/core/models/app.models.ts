@@ -67,6 +67,9 @@ export interface SavedContent extends BaseRecord {
   readonly mediaId?: string;
   readonly startTimeSeconds?: number;
   readonly aspectRatio?: number;
+  readonly manualAspectRatio?: number;
+  readonly videoEmbeddable?: boolean;
+  readonly fbPlayable?: boolean;
   readonly domain: string;
   readonly contentType: ContentType;
   readonly platform: string;
@@ -99,7 +102,7 @@ export interface SavedContent extends BaseRecord {
 export interface ContentFilters {
   readonly section: 'videos' | 'posts';
   readonly query: string;
-  readonly contentType: ContentType | '';
+  readonly contentType: string;
   readonly platform: string;
   readonly categoryId: string;
   readonly tagId: string;
@@ -426,6 +429,52 @@ export const VIDEO_CONTENT_TYPES: readonly ContentType[] = [
 
 export function isVideoContentType(type: ContentType): boolean {
   return VIDEO_CONTENT_TYPES.includes(type);
+}
+
+export interface ContentTypeGroup {
+  readonly value: string;
+  readonly label: string;
+  readonly types: readonly ContentType[];
+}
+
+// A group lets one filter match every related sub-type of a platform (for example
+// all Facebook video variants) while each sub-type also stays individually
+// selectable. Group values are prefixed so they never collide with a ContentType.
+export const CONTENT_TYPE_GROUPS: readonly ContentTypeGroup[] = [
+  { value: 'group:youtube', label: 'All YouTube', types: ['youtube', 'youtube-short'] },
+  {
+    value: 'group:facebook',
+    label: 'All Facebook',
+    types: ['facebook', 'facebook-reel', 'facebook-share', 'facebook-post'],
+  },
+  { value: 'group:instagram', label: 'All Instagram', types: ['instagram', 'instagram-post'] },
+  { value: 'group:tiktok', label: 'All TikTok', types: ['tiktok', 'tiktok-share'] },
+];
+
+export function contentTypeMatchesFilter(type: ContentType, filterValue: string): boolean {
+  if (!filterValue) return true;
+  const group = CONTENT_TYPE_GROUPS.find((entry) => entry.value === filterValue);
+  return group ? group.types.includes(type) : type === filterValue;
+}
+
+export interface AspectRatioPreset {
+  readonly value: string;
+  readonly label: string;
+  readonly ratio: number;
+}
+
+export const ASPECT_RATIO_PRESETS: readonly AspectRatioPreset[] = [
+  { value: '9-16', label: 'Portrait 9:16', ratio: 9 / 16 },
+  { value: '4-5', label: 'Portrait 4:5', ratio: 4 / 5 },
+  { value: '3-4', label: 'Portrait 3:4', ratio: 3 / 4 },
+  { value: '1-1', label: 'Square 1:1', ratio: 1 },
+  { value: '4-3', label: 'Landscape 4:3', ratio: 4 / 3 },
+  { value: '16-9', label: 'Landscape 16:9', ratio: 16 / 9 },
+];
+
+export function aspectRatioPresetValue(ratio: number | undefined): string {
+  if (!ratio || ratio <= 0) return '';
+  return ASPECT_RATIO_PRESETS.find((preset) => Math.abs(preset.ratio - ratio) < 0.01)?.value ?? '';
 }
 
 export const BLOOD_GROUPS = [
