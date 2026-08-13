@@ -14,7 +14,7 @@ export type MetadataPatch = Pick<
   | 'metadataStatus'
   | 'metadataError'
   | 'metadataSource'
-> & { readonly resolvedUrl?: string };
+> & { readonly resolvedUrl?: string; readonly videoEmbeddable?: boolean };
 
 export interface ShareResolution {
   readonly url: string;
@@ -220,6 +220,7 @@ export class MetadataService {
       metadataError: '',
       metadataSource: source,
       resolvedUrl: this.safeUrl(result.url),
+      ...(result.videoEmbeddable !== undefined ? { videoEmbeddable: result.videoEmbeddable } : {}),
     };
   }
 

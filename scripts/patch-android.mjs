@@ -201,6 +201,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.concurrent.Executor;
@@ -360,23 +361,19 @@ public class MainActivity extends BridgeActivity {
   public class MetadataBridge {
     @JavascriptInterface public void fetch(String rawUrl, int timeoutMs, int maxImageBytes) {
       networkExecutor.execute(() -> {
-        HttpURLConnection connection = null;
         try {
-          URL url = new URL(rawUrl); String protocol = url.getProtocol(); boolean crawler = prefersPreviewCrawler(rawUrl);
-          if (!"https".equals(protocol) && !"http".equals(protocol)) throw new IllegalArgumentException("Only HTTP and HTTPS URLs are supported.");
-          connection = (HttpURLConnection) url.openConnection(); connection.setConnectTimeout(Math.max(1000, timeoutMs)); connection.setReadTimeout(Math.max(1000, timeoutMs));
-          connection.setInstanceFollowRedirects(true); connection.setRequestProperty("User-Agent", crawler ? "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" : "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept", "text/html,application/xhtml+xml"); connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9"); connection.setRequestProperty("Accept-Encoding", "identity");
-          int status = connection.getResponseCode(); if (status < 200 || status >= 400) throw new IllegalStateException("Website returned " + status + ".");
-          String contentType = connection.getContentType(); if (contentType != null && !contentType.toLowerCase().contains("text/html")) throw new IllegalStateException("The URL did not return an HTML page.");
-          int maxHtml = 1024 * 1024; byte[] bytes = readLimited(connection.getInputStream(), maxHtml); String html = new String(bytes, StandardCharsets.UTF_8);
+          boolean crawler = prefersPreviewCrawler(rawUrl); boolean facebook = hostEndsWith(rawUrl, "facebook.com") || hostEndsWith(rawUrl, "fb.com");
+          String html = ""; String responseUrlStr = rawUrl; int attempts = facebook ? 3 : 1;
+          for (int i = 0; i < attempts; i++) { String[] doc = fetchDocument(rawUrl, timeoutMs, crawler); html = doc[0]; responseUrlStr = doc[1]; if (!facebook || !facebookLoginWall(html)) break; if (i + 1 < attempts) Thread.sleep(600); }
+          URL responseUrl = new URL(responseUrlStr);
           JSONObject result = new JSONObject(); result.put("title", first(meta(html, "og:title"), first(meta(html, "twitter:title"), title(html)))); result.put("description", first(meta(html, "og:description"), first(meta(html, "twitter:description"), meta(html, "description"))));
-          URL responseUrl = connection.getURL(); String resolved = first(meta(html, "og:url"), responseUrl.toString()); String facebookResolved = facebookVideoUrl(html); if (isFacebookShare(rawUrl) && !facebookResolved.isEmpty()) resolved = facebookResolved; URL resolvedUrl = new URL(responseUrl, resolved);
+          String resolved = first(meta(html, "og:url"), responseUrl.toString()); String facebookResolved = facebookVideoUrl(html); if (isFacebookShare(rawUrl) && !facebookResolved.isEmpty()) resolved = facebookResolved; URL resolvedUrl = new URL(responseUrl, resolved);
           String image = first(meta(html, "og:image"), first(meta(html, "og:image:url"), first(meta(html, "twitter:image"), firstImage(html)))); result.put("image", previewImage(rawUrl, resolvedUrl, image, maxImageBytes)); result.put("imageWidth", positiveInt(first(meta(html, "og:image:width"), meta(html, "twitter:image:width")))); result.put("imageHeight", positiveInt(first(meta(html, "og:image:height"), meta(html, "twitter:image:height")))); result.put("siteName", meta(html, "og:site_name")); result.put("url", resolvedUrl.toString());
-          result.put("logo", resolveUrl(url, icon(html))); result.put("maxImageBytes", maxImageBytes);
+          if (isFacebookVideo(resolvedUrl.toString()) && !result.optString("image").isEmpty()) result.put("videoEmbeddable", facebookEmbeddable(resolvedUrl.toString(), timeoutMs));
+          result.put("logo", resolveUrl(new URL(rawUrl), icon(html))); result.put("maxImageBytes", maxImageBytes);
           if (isBlockedPreview(result.optString("title"), result.optString("description"), result.optString("image"))) throw new IllegalStateException("The site blocked the link preview.");
           dispatch("metadata-fetch", true, result.toString(), "");
         } catch (Exception error) { if (isShoppingUrl(rawUrl)) fetchViaWebView(rawUrl, timeoutMs, maxImageBytes); else dispatch("metadata-fetch", false, "", message(error)); }
-        finally { if (connection != null) connection.disconnect(); }
       });
     }
   }
@@ -384,6 +381,21 @@ public class MainActivity extends BridgeActivity {
   private byte[] readLimited(InputStream input, int maximum) throws Exception {
     try (InputStream source = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) { byte[] buffer = new byte[8192]; int count; int total = 0; while ((count = source.read(buffer)) != -1 && total < maximum) { int allowed = Math.min(count, maximum - total); output.write(buffer, 0, allowed); total += allowed; } return output.toByteArray(); }
   }
+  private String[] fetchDocument(String rawUrl, int timeoutMs, boolean crawler) throws Exception {
+    HttpURLConnection connection = null;
+    try {
+      URL url = new URL(rawUrl); String protocol = url.getProtocol();
+      if (!"https".equals(protocol) && !"http".equals(protocol)) throw new IllegalArgumentException("Only HTTP and HTTPS URLs are supported.");
+      connection = (HttpURLConnection) url.openConnection(); connection.setConnectTimeout(Math.max(1000, timeoutMs)); connection.setReadTimeout(Math.max(1000, timeoutMs));
+      connection.setInstanceFollowRedirects(true); connection.setRequestProperty("User-Agent", crawler ? "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" : "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept", "text/html,application/xhtml+xml"); connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9"); connection.setRequestProperty("Accept-Encoding", "identity");
+      int status = connection.getResponseCode(); if (status < 200 || status >= 400) throw new IllegalStateException("Website returned " + status + ".");
+      String contentType = connection.getContentType(); if (contentType != null && !contentType.toLowerCase().contains("text/html")) throw new IllegalStateException("The URL did not return an HTML page.");
+      byte[] bytes = readLimited(connection.getInputStream(), 1024 * 1024); return new String[]{ new String(bytes, StandardCharsets.UTF_8), connection.getURL().toString() };
+    } finally { if (connection != null) connection.disconnect(); }
+  }
+  // Facebook returns a stripped shell (no og tags, <title>Facebook</title>) for removed/gated
+  // reels and sometimes when it rate-limits the crawler; live reels retry past a transient wall.
+  private boolean facebookLoginWall(String html) { if (html == null || html.isEmpty()) return true; if (!meta(html, "og:image").isEmpty() || !meta(html, "og:title").isEmpty()) return false; String heading = title(html).trim(); return heading.isEmpty() || heading.equalsIgnoreCase("Facebook"); }
   private String meta(String html, String property) { String quoted = Pattern.quote(property); String[] expressions = { "<meta[^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"'][^>]+content=[\\\"']([^\\\"']*)[\\\"']", "<meta[^>]+content=[\\\"']([^\\\"']*)[\\\"'][^>]+(?:property|name)=[\\\"']" + quoted + "[\\\"']" }; for (String expression : expressions) { Matcher match = Pattern.compile(expression, Pattern.CASE_INSENSITIVE).matcher(html); if (match.find()) return decode(match.group(1)); } return ""; }
   private String title(String html) { Matcher match = Pattern.compile("<title[^>]*>(.*?)</title>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
   private String icon(String html) { Matcher match = Pattern.compile("<link[^>]+rel=[\\\"'][^\\\"']*icon[^\\\"']*[\\\"'][^>]+href=[\\\"']([^\\\"']+)[\\\"']", Pattern.CASE_INSENSITIVE).matcher(html); return match.find() ? decode(match.group(1)) : ""; }
@@ -401,6 +413,8 @@ public class MainActivity extends BridgeActivity {
   private boolean isBlockedPreview(String title, String description, String image) { if (image != null && !image.isEmpty()) return false; String text = ((title == null ? "" : title) + " " + (description == null ? "" : description)).toLowerCase(); return text.contains("access denied") || text.contains("attention required") || text.contains("just a moment") || text.contains("verifying you are human") || text.contains("pardon our interruption") || text.contains("request unsuccessful") || text.contains("are you a robot") || text.contains("please enable cookies"); }
   private boolean isFacebookShare(String rawUrl) { try { return new URL(rawUrl).getPath().matches("(?i).*/share/[rv]/[^/]+/?.*"); } catch (Exception ignored) { return false; } }
   private String facebookVideoUrl(String html) { String normalized = html.replace("\\\\/", "/"); Matcher match = Pattern.compile("https?://(?:www\\\\.|m\\\\.)facebook\\\\.com/[^\\\\s<>]+", Pattern.CASE_INSENSITIVE).matcher(normalized); while (match.find()) { String candidate = decode(match.group()).replaceAll("[\\\"'&].*$", ""); String lower = candidate.toLowerCase(); if (lower.contains("/reel/") || lower.contains("/videos/") || lower.contains("/watch/?v=")) return candidate; } return ""; }
+  private boolean isFacebookVideo(String u) { if (u == null) return false; String l = u.toLowerCase(); return (l.contains("facebook.com") || l.contains("fb.watch")) && (l.contains("/reel/") || l.contains("/videos/") || l.contains("/watch") || l.contains("/share/r/") || l.contains("/share/v/")); }
+  private boolean facebookEmbeddable(String canonicalUrl, int timeoutMs) { HttpURLConnection connection = null; try { String href = URLEncoder.encode(canonicalUrl, "UTF-8"); URL plugin = new URL("https://www.facebook.com/plugins/video.php?href=" + href); connection = (HttpURLConnection) plugin.openConnection(); connection.setConnectTimeout(Math.max(1000, timeoutMs)); connection.setReadTimeout(Math.max(1000, timeoutMs)); connection.setInstanceFollowRedirects(true); connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept-Encoding", "identity"); int status = connection.getResponseCode(); if (status < 200 || status >= 400) return false; byte[] bytes = readLimited(connection.getInputStream(), 1024 * 1024); String html = new String(bytes, StandardCharsets.UTF_8); return html.contains("dash_manifest") || html.contains("videoData") || html.contains("browser_native_hd_url") || html.contains("playable_url"); } catch (Exception ignored) { return false; } finally { if (connection != null) connection.disconnect(); } }
   private boolean genericGoogleMapsImage(String rawUrl) { String lower = rawUrl.toLowerCase(); return lower.contains("/branding/product/") || lower.contains("google_maps") || lower.contains("maps_96in128dp") || lower.contains("maps_64dp") || lower.contains("maps_app_icon"); }
   private String previewImage(String sourceUrl, URL base, String rawImage, int requestedMaximum) { String image = resolveUrl(base, rawImage); if (image.isEmpty() || (isGoogleMapsUrl(sourceUrl) && genericGoogleMapsImage(image))) return ""; if (!prefersPreviewCrawler(sourceUrl) && !isShoppingUrl(sourceUrl)) return image; String inlined = inlineImage(image, requestedMaximum); return inlined.isEmpty() ? image : inlined; }
   private String inlineImage(String rawUrl, int requestedMaximum) { HttpURLConnection connection = null; try { int maximum = Math.max(65536, Math.min(requestedMaximum, 3 * 1024 * 1024)); connection = (HttpURLConnection) new URL(rawUrl).openConnection(); connection.setInstanceFollowRedirects(true); connection.setConnectTimeout(15000); connection.setReadTimeout(20000); connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 Personix/1.0"); connection.setRequestProperty("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"); int status = connection.getResponseCode(); if (status < 200 || status >= 300) return ""; String type = connection.getContentType(); if (type == null || !type.toLowerCase().startsWith("image/")) return ""; byte[] bytes = readLimited(connection.getInputStream(), maximum + 1); if (bytes.length == 0 || bytes.length > maximum) return ""; return "data:" + type.split(";")[0].trim() + ";base64," + Base64.encodeToString(bytes, Base64.NO_WRAP); } catch (Exception ignored) { return ""; } finally { if (connection != null) connection.disconnect(); } }

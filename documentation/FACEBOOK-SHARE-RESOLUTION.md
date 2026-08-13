@@ -23,12 +23,78 @@ share URL. The card's **Open** action remains available when Meta refuses to emb
 a particular video; the app cannot read or override an error rendered inside
 Meta's cross-origin iframe.
 
-Confirmed rights-blocked video IDs are kept in
-`CONTENT_CONFIG.facebookPosterFallbackVideoIds`. Only those IDs render their
-stored poster with an explanatory notice; this avoids showing Meta's error frame
-without diverting working Facebook reels away from the inline player. The list is
-intentionally explicit because the app cannot inspect a cross-origin iframe to
-discover the error after it renders.
+## The “Watch on Facebook” poster
+
+Some Facebook videos stream inline through Meta's embedded player and some are
+rejected with “This video can't be embedded because it may contain content owned
+by someone else”. Two `/share/r/` links can look identical in their crawler HTML
+(same `og:type=video.other`, both with `og:image`, neither exposing `og:video`),
+so the content type alone cannot tell them apart. The embed decision is made by
+Meta's plugin, not the page.
+
+### How embeddability is detected (Android, on-device, no third-party API)
+
+During native metadata fetch, when the resolved URL is a Facebook video the
+`MetadataBridge` performs one extra on-device request to Facebook's own embed
+endpoint:
+
+```
+https://www.facebook.com/plugins/video.php?href=<canonical url>
+```
+
+`facebookEmbeddable()` then checks whether that page actually contains a video
+stream (markers such as `dash_manifest`, `videoData`, `browser_native_hd_url`, or
+`playable_url`). An embeddable reel returns these; a rights-blocked one does not.
+The boolean result is stored on the item as `videoEmbeddable`. This uses only the
+device's own HTTP stack — no Microlink or other third-party service. The probe is
+skipped when the page returned no image (nothing to embed), which avoids a wasted
+request on removed reels.
+
+### Live vs. removed reels
+
+Facebook serves a stripped shell (five meta tags, no `og:*` tags,
+`<title>Facebook</title>`) for reels that are **removed or gated**, and it
+sometimes returns the same shell when it is **rate-limiting the crawler** for a
+live reel. Because a single failed fetch cannot tell these apart, the native
+fetcher detects the shell with `facebookLoginWall()` and retries the request up to
+three times (with a short delay) for `facebook.com`/`fb.com` URLs.
+
+- A **live** reel returns real `og:image`/`og:title` on the first attempt, or on a
+  retry once the transient wall clears, so its thumbnail is fetched and inlined.
+- A **removed** reel returns the shell on every attempt; the fetch then succeeds
+  with no image, so the card simply shows the “Watch on Facebook” poster
+  placeholder and still opens the reel in Facebook. Removed reels are left as-is.
+
+### When the poster is shown
+
+`facebookPoster()` renders the poster **only** when a Facebook video's
+`videoEmbeddable === false`. When it is `true`, the normal inline iframe player is
+used. When the flag is unknown (older saved items, or web fetches that never probe
+Facebook), the app keeps the inline player and honours the manual
+`CONTENT_CONFIG.facebookPosterFallbackVideoIds` overrides. Re-fetching metadata on
+an older item populates the flag.
+
+### The “FB playable” per-item override
+
+The embed probe runs only on Android. On the web (and for any reel that slips past
+detection) a video can still show Facebook's “Unavailable / content owned by
+someone else” frame. For those cases the item editor exposes an **FB playable**
+checkbox on any Facebook video. When it is checked, `item.fbPlayable === true`
+forces the poster regardless of the probe result: the saved `og:image` is shown
+and the card opens the reel in Facebook. This is a manual, per-item switch the
+user controls; leaving it unchecked keeps the automatic behaviour above.
+
+The poster mirrors the Instagram “Watch on Instagram” experience:
+
+- the stored `og:image` (or a video-icon placeholder when no image exists),
+- a centered play button,
+- a “Watch on Facebook” label,
+- the whole card is a button that emits `openRequested`; the parent list's
+  `open()` handler opens the canonical URL externally (Facebook app or browser).
+
+Because a poster is not a real player, the Muted/PIP overlay controls are hidden
+for it (`playbackControlsAvailable` is false when `facebookPoster()` is true), and
+`safeEmbedUrl` returns `null` so no iframe is created.
 
 Facebook reels use a 9:16 fallback until real preview dimensions are available.
 Android reads `og:image:width` and `og:image:height` directly and stores the

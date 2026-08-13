@@ -9,6 +9,7 @@ export interface NativeMetadataResult {
   readonly url?: string;
   readonly logo?: string;
   readonly siteName?: string;
+  readonly videoEmbeddable?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

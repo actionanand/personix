@@ -4,7 +4,10 @@ import { ActivatedRoute } from '@angular/router';
 import { CONTENT_CONFIG, isAndroidExternalPostUrl } from '../../core/config/content.config';
 import {
   AppSettings,
+  ASPECT_RATIO_PRESETS,
+  aspectRatioPresetValue,
   CONTENT_TYPES,
+  CONTENT_TYPE_GROUPS,
   ContentFilters,
   ContentType,
   SavedContent,
@@ -82,10 +85,29 @@ export class Content {
       (type) => isVideoContentType(type.value) === (this.activeSection() === 'videos'),
     ),
   );
-  protected readonly contentTypeOptions = computed<readonly SelectPickerOption[]>(() => [
-    { value: '', label: `All ${this.activeSection()}` },
-    ...this.contentTypes(),
-  ]);
+  protected readonly contentTypeOptions = computed<readonly SelectPickerOption[]>(() => {
+    const types = this.contentTypes();
+    const options: SelectPickerOption[] = [{ value: '', label: `All ${this.activeSection()}` }];
+    const emitted = new Set<ContentType>();
+    for (const type of types) {
+      if (emitted.has(type.value)) continue;
+      const group = CONTENT_TYPE_GROUPS.find((entry) => entry.types.includes(type.value));
+      const members = group ? types.filter((item) => group.types.includes(item.value)) : [];
+      if (group && members.length > 1) {
+        options.push({
+          value: group.value,
+          label: group.label,
+          detail: members.map((member) => member.label).join(' · '),
+          children: members.map((member) => ({ value: member.value, label: member.label })),
+        });
+        for (const member of members) emitted.add(member.value);
+      } else {
+        options.push(type);
+        emitted.add(type.value);
+      }
+    }
+    return options;
+  });
   protected readonly formContentTypeOptions = computed<readonly SelectPickerOption[]>(() =>
     this.contentTypes(),
   );
@@ -165,6 +187,13 @@ export class Content {
     if (this.filters().excludeAdult) return 'exclude';
     return 'all';
   });
+  protected readonly aspectRatioModeOptions: readonly SelectPickerOption[] = [
+    { value: 'auto', label: 'Automatic' },
+    { value: 'manual', label: 'Manual' },
+  ];
+  protected readonly aspectRatioOptions: readonly SelectPickerOption[] = ASPECT_RATIO_PRESETS.map(
+    (preset) => ({ value: preset.value, label: preset.label }),
+  );
 
   protected readonly searchControl = this.formBuilder.nonNullable.control('');
   protected readonly contentForm = this.formBuilder.nonNullable.group({
@@ -181,6 +210,9 @@ export class Content {
     consumed: [false],
     sent: [false],
     sentNote: [''],
+    fbPlayable: [false],
+    aspectRatioMode: ['auto' as 'auto' | 'manual'],
+    aspectRatioValue: [''],
   });
 
   constructor() {
@@ -300,6 +332,9 @@ export class Content {
       consumed: false,
       sent: false,
       sentNote: '',
+      fbPlayable: false,
+      aspectRatioMode: 'auto',
+      aspectRatioValue: '',
     });
     this.panelOpen.set(true);
   }
@@ -326,6 +361,9 @@ export class Content {
       consumed: item.consumed,
       sent: item.sent,
       sentNote: item.sentNote,
+      fbPlayable: item.fbPlayable ?? false,
+      aspectRatioMode: item.manualAspectRatio ? 'manual' : 'auto',
+      aspectRatioValue: aspectRatioPresetValue(item.manualAspectRatio),
     });
     this.panelOpen.set(true);
   }
@@ -362,6 +400,10 @@ export class Content {
           ? detectedFromUrl.platform
           : form.platform.trim() || detectedFromUrl.platform,
       };
+      const manualAspectRatio =
+        form.aspectRatioMode === 'manual'
+          ? ASPECT_RATIO_PRESETS.find((preset) => preset.value === form.aspectRatioValue)?.ratio
+          : undefined;
       let item = await this.repository.save({
         id: previous?.id,
         createdAt: timestamp,
@@ -391,6 +433,10 @@ export class Content {
         metadataStatus: previous?.metadataStatus ?? 'idle',
         metadataError: previous?.metadataError ?? '',
         metadataSource: previous?.metadataSource ?? 'none',
+        aspectRatio: previous?.aspectRatio,
+        videoEmbeddable: previous?.videoEmbeddable,
+        manualAspectRatio,
+        fbPlayable: form.fbPlayable,
       });
       item = await this.resolveShareUrl(item);
       this.panelOpen.set(false);
@@ -519,6 +565,14 @@ export class Content {
       return detectContentUrl(item.resolvedUrl || item.url).platform;
     }
     return item.platform || item.domain;
+  }
+
+  protected isVideoType(type: ContentType): boolean {
+    return isVideoContentType(type);
+  }
+
+  protected isFacebookVideoType(type: ContentType): boolean {
+    return type.startsWith('facebook') && isVideoContentType(type);
   }
 
   protected contentTitle(item: SavedContent): string {

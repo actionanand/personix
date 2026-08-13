@@ -39,3 +39,22 @@ The result is delivered to the web layer as the `image` field and stored in
 
 `aspectRatio` (from the image dimensions) is stored on the item and reused by the
 content preview to size embeds/thumbnails without layout shift.
+
+## Manual aspect ratio override
+
+Some Facebook and Instagram videos report the wrong dimensions (for example a
+portrait reel whose `og:image` is a square or landscape frame), so the automatic
+`aspectRatio` is incorrect. The item editor therefore exposes an **Aspect ratio**
+control for every video type:
+
+- **Automatic** (default) uses the fetched `aspectRatio` and the content-type
+  fallback, exactly as before.
+- **Manual** lets the user pick a preset from `ASPECT_RATIO_PRESETS` (9:16, 4:5,
+  3:4, 1:1, 4:3, 16:9). The chosen ratio is stored separately on the item as
+  `manualAspectRatio`.
+
+The preview's `aspectRatio()` computed prefers `manualAspectRatio` when present,
+then the fetched `aspectRatio`, then the content-type default. Because the manual
+value lives in its own field, a later metadata fetch (which only writes
+`aspectRatio`) never overrides the user's choice. Switching back to Automatic
+clears `manualAspectRatio`.

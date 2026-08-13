@@ -133,6 +133,52 @@
   color: var(--primary);
   background: var(--primary-soft);
 }
+.picker-parent {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+.picker-parent .picker-option {
+  flex: 1;
+  min-width: 0;
+}
+.picker-expand {
+  display: grid;
+  flex: 0 0 auto;
+  width: 3rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.85rem;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+}
+.picker-expand:hover {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+.picker-expand:focus-visible {
+  border-color: var(--primary);
+  outline: 2px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-offset: -2px;
+}
+.picker-expand app-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--primary);
+  transition: transform 160ms ease;
+}
+.picker-expand.open app-icon {
+  transform: rotate(180deg);
+}
+.picker-child {
+  min-height: 3rem;
+  padding-left: 2.75rem;
+}
+.picker-child .option-copy strong {
+  font-weight: 600;
+}
 .option-copy {
   display: grid;
   gap: 0.15rem;
@@ -167,6 +213,10 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.25rem;
+  }
+  .picker-sheet.many-options > div .picker-parent,
+  .picker-sheet.many-options > div .picker-child {
+    grid-column: 1 / -1;
   }
   .picker-option {
     min-height: 3.25rem;

@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
   viewChild,
 } from '@angular/core';
@@ -81,12 +82,13 @@ interface BlueskyOEmbedResponse {
         referrerpolicy="no-referrer"
         (error)="previewImageFailed.set(true)"
       />
-    } @else if (facebookPosterFallback()) {
-      <div
-        class="facebook-restricted-preview"
+    } @else if (facebookPoster()) {
+      <button
+        type="button"
+        class="facebook-poster"
         [style.aspect-ratio]="aspectRatio()"
-        role="img"
-        [attr.aria-label]="label() + '. Facebook has blocked inline playback for this video.'"
+        [attr.aria-label]="'Watch ' + label() + ' on Facebook'"
+        (click)="requestOpen()"
       >
         @if (item().ogImageUrl && !previewImageFailed()) {
           <img
@@ -97,14 +99,11 @@ interface BlueskyOEmbedResponse {
             (error)="previewImageFailed.set(true)"
           />
         } @else {
-          <span class="facebook-restricted-placeholder">Facebook Reel</span>
+          <span class="facebook-poster-placeholder"><app-icon name="video" /></span>
         }
-        <span class="facebook-restricted-message">
-          <app-icon name="shield-alert" />
-          <strong>Facebook blocked inline playback</strong>
-          <small>The saved preview is still available. Use Open to watch on Facebook.</small>
-        </span>
-      </div>
+        <span class="facebook-poster-play"><app-icon name="circle-play" /></span>
+        <span class="facebook-poster-label">Watch on Facebook</span>
+      </button>
     } @else if (videoUrl()) {
       <video
         #videoElement
@@ -262,43 +261,56 @@ interface BlueskyOEmbedResponse {
       border: 0;
       object-fit: cover;
     }
-    .facebook-restricted-preview {
+    .facebook-poster {
       position: relative;
       display: grid;
       width: 100%;
       min-height: 15rem;
       overflow: hidden;
       place-items: center;
+      padding: 0;
+      border: 0;
       color: #fff;
       background: #101813;
+      cursor: pointer;
+      font: inherit;
     }
-    .facebook-restricted-preview img {
+    .facebook-poster img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .facebook-restricted-placeholder {
-      font-size: 1rem;
-      font-weight: 750;
+    .facebook-poster-placeholder app-icon {
+      width: 3rem;
+      height: 3rem;
+      opacity: 0.6;
     }
-    .facebook-restricted-message {
+    .facebook-poster-play {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+    .facebook-poster-play app-icon {
+      width: 3.5rem;
+      height: 3.5rem;
+      color: #fff;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+    }
+    .facebook-poster-label {
       position: absolute;
       inset: auto 0 0;
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.15rem 0.6rem;
-      align-items: center;
-      padding: 0.8rem 1rem;
-      background: linear-gradient(transparent, rgba(3, 12, 7, 0.94) 35%);
+      padding: 0.7rem 1rem;
+      background: linear-gradient(transparent, rgba(3, 12, 7, 0.94) 45%);
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-align: center;
       text-shadow: 0 1px 2px #000;
     }
-    .facebook-restricted-message app-icon {
-      grid-row: 1 / span 2;
-      width: 1.35rem;
-      height: 1.35rem;
-    }
-    .facebook-restricted-message small {
-      line-height: 1.35;
+    .facebook-poster:focus-visible {
+      outline: 2px solid #5ed39a;
+      outline-offset: -2px;
     }
     .embed-frame.vertical {
       max-height: 34rem;
@@ -453,6 +465,7 @@ export class ContentPreview {
   // Native PIP events broadcast to every preview on the page; only this owner reacts.
   private static activePipOwner: ContentPreview | null = null;
   readonly item = input.required<SavedContent>();
+  readonly openRequested = output<void>();
   private readonly sanitizer = inject(DomSanitizer);
   private readonly native = inject(NativeIntegrationService);
   private readonly store = inject(AppStore);
@@ -474,6 +487,8 @@ export class ContentPreview {
   // Real video aspect ratio when known, otherwise a content-type default.
   protected readonly aspectRatio = computed(() => {
     const item = this.item();
+    const manual = item.manualAspectRatio;
+    if (manual && manual > 0 && Number.isFinite(manual)) return manual;
     const stored = item.aspectRatio;
     if (stored && stored > 0 && Number.isFinite(stored)) return stored;
     const facebookReelShare =
@@ -510,14 +525,21 @@ export class ContentPreview {
     ].includes(type);
   });
   protected readonly videoContent = computed(() => isVideoContentType(this.item().contentType));
-  protected readonly facebookPosterFallback = computed(() => {
+  protected readonly facebookPoster = computed(() => {
     const item = this.item();
-    if (!['facebook', 'facebook-reel', 'facebook-share'].includes(item.contentType)) return false;
+    if (!this.videoContent() || !item.contentType.startsWith('facebook')) return false;
+    // Explicit per-item choice always wins ("FB playable": show image, open in FB).
+    if (item.fbPlayable === true) return true;
+    // The native fetcher probes Facebook's embed player and stores whether it
+    // will actually stream inline; only fall back to the poster when it won't.
+    if (item.videoEmbeddable === false) return true;
+    if (item.videoEmbeddable === true) return false;
+    // Unknown (older items or web fetch): keep the manual rights-blocked overrides.
     const mediaId = item.mediaId || detectContentUrl(item.resolvedUrl || item.url).mediaId;
     return CONTENT_CONFIG.facebookPosterFallbackVideoIds.some((id) => id === mediaId);
   });
   protected readonly playbackControlsAvailable = computed(
-    () => this.videoContent() && !this.facebookPosterFallback(),
+    () => this.videoContent() && !this.facebookPoster(),
   );
   protected readonly videoUrl = computed(() =>
     this.item().contentType === 'generic-video' ? this.item().resolvedUrl || this.item().url : '',
@@ -537,7 +559,7 @@ export class ContentPreview {
   });
   protected readonly safeEmbedUrl = computed<SafeResourceUrl | null>(() => {
     const item = this.item();
-    if (this.facebookPosterFallback()) return null;
+    if (this.facebookPoster()) return null;
     const embedItem = this.googleMapsContent()
       ? { ...item, contentType: 'google-maps' as const }
       : item;
@@ -913,8 +935,16 @@ export class ContentPreview {
     this.postToEmbed(mute ? 'mute' : 'unMute');
   }
 
+  protected requestOpen(): void {
+    this.openRequested.emit();
+  }
+
   private postToEmbed(func: string): void {
-    const frame = this.host.nativeElement.querySelector('iframe');
-    frame?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
+    const win = this.host.nativeElement.querySelector('iframe')?.contentWindow;
+    if (!win) return;
+    // YouTube's IFrame API only accepts commands once the parent registers as a
+    // listener, so send the handshake before the command as a best-effort.
+    win.postMessage(JSON.stringify({ event: 'listening' }), '*');
+    win.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
   }
 }
