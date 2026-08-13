@@ -186,6 +186,8 @@ import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -217,11 +219,13 @@ import javax.crypto.spec.GCMParameterSpec;
 public class MainActivity extends BridgeActivity {
   private static final String KEY_ALIAS = "personix_biometric_key";
   private static final String SECURITY_PREFS = "personix_security";
+  private static final int OPEN_BACKUP_REQUEST = 7320;
   private static final String ACTION_PIP_CONTROL = "${appId}.PIP_CONTROL";
   private static final String ACTION_PIP_MUTE = "${appId}.PIP_MUTE";
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
   private ExportBridge exportBridge;
+  private ValueCallback<Uri[]> fileChooserCallback;
   private BiometricPrompt biometricPrompt;
   private BroadcastReceiver pipReceiver;
   private boolean pipPlaying = true;
@@ -246,11 +250,28 @@ public class MainActivity extends BridgeActivity {
     getBridge().getWebView().addJavascriptInterface(exportBridge, "PersonixExport");
     getBridge().getWebView().setBackgroundColor(Color.parseColor(darkMode ? "#07140F" : "#F3F8F5"));
     getBridge().getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
+    getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
+      @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, WebChromeClient.FileChooserParams params) {
+        if (fileChooserCallback != null) { fileChooserCallback.onReceiveValue(null); }
+        fileChooserCallback = callback;
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/octet-stream", "application/json", "*/*"});
+        try { startActivityForResult(intent, OPEN_BACKUP_REQUEST); } catch (Exception e) { fileChooserCallback = null; callback.onReceiveValue(null); }
+        return true;
+      }
+    });
     registerPipReceiver();
     applyLaunchBars();
   }
 
   @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (requestCode == OPEN_BACKUP_REQUEST) {
+      Uri uri = (resultCode == Activity.RESULT_OK && data != null) ? data.getData() : null;
+      if (fileChooserCallback != null) { fileChooserCallback.onReceiveValue(uri != null ? new Uri[]{uri} : null); fileChooserCallback = null; }
+      return;
+    }
     if (exportBridge != null && exportBridge.handleActivityResult(requestCode, resultCode, data)) return;
     super.onActivityResult(requestCode, resultCode, data);
   }
