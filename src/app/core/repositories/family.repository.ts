@@ -2,17 +2,25 @@ import { inject, Injectable } from '@angular/core';
 import { DATABASE } from '../database/database.port';
 import {
   BloodGroupRecord,
+  EmploymentHistoryRecord,
   FamilyMember,
   HospitalOpRecord,
   ImportantItem,
   MedicalInsurance,
+  ResidenceHistoryRecord,
   newId,
   normalizeText,
   nowIso,
 } from '../models/app.models';
 
 export type FamilyEntity =
-  FamilyMember | HospitalOpRecord | MedicalInsurance | ImportantItem | BloodGroupRecord;
+  | FamilyMember
+  | HospitalOpRecord
+  | MedicalInsurance
+  | ImportantItem
+  | BloodGroupRecord
+  | ResidenceHistoryRecord
+  | EmploymentHistoryRecord;
 
 @Injectable({ providedIn: 'root' })
 export class FamilyRepository {
@@ -73,6 +81,34 @@ export class FamilyRepository {
     );
   }
 
+  async residences(query = ''): Promise<readonly ResidenceHistoryRecord[]> {
+    return this.search(await this.database.getAll('residence_history'), query, (item) =>
+      [
+        item.location,
+        item.fullAddress,
+        item.contactNumber,
+        item.startDate,
+        item.endDate,
+        item.notes,
+      ].join(' '),
+    );
+  }
+
+  async employment(query = ''): Promise<readonly EmploymentHistoryRecord[]> {
+    return this.search(await this.database.getAll('employment_history'), query, (item) =>
+      [
+        item.companyName,
+        item.jobTitle,
+        item.place,
+        item.employmentType,
+        item.employmentMode,
+        item.startDate,
+        item.endDate,
+        item.notes,
+      ].join(' '),
+    );
+  }
+
   async saveMember(
     value: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'> &
       Partial<Pick<FamilyMember, 'id' | 'createdAt'>>,
@@ -108,13 +144,29 @@ export class FamilyRepository {
     await this.save('blood_group_records', value);
   }
 
+  async saveResidence(
+    value: Omit<ResidenceHistoryRecord, 'id' | 'createdAt' | 'updatedAt'> &
+      Partial<Pick<ResidenceHistoryRecord, 'id' | 'createdAt'>>,
+  ): Promise<void> {
+    await this.save('residence_history', value);
+  }
+
+  async saveEmployment(
+    value: Omit<EmploymentHistoryRecord, 'id' | 'createdAt' | 'updatedAt'> &
+      Partial<Pick<EmploymentHistoryRecord, 'id' | 'createdAt'>>,
+  ): Promise<void> {
+    await this.save('employment_history', value);
+  }
+
   async remove(
     table:
       | 'family_members'
       | 'hospital_op_records'
       | 'medical_insurance'
       | 'important_items'
-      | 'blood_group_records',
+      | 'blood_group_records'
+      | 'residence_history'
+      | 'employment_history',
     id: string,
   ): Promise<void> {
     await this.database.delete(table, id);
@@ -126,7 +178,9 @@ export class FamilyRepository {
       | 'hospital_op_records'
       | 'medical_insurance'
       | 'important_items'
-      | 'blood_group_records',
+      | 'blood_group_records'
+      | 'residence_history'
+      | 'employment_history',
   >(
     table: K,
     value: Omit<

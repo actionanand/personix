@@ -7,7 +7,7 @@ interface SqlitePayloadRow {
   readonly payload: string;
 }
 const DATABASE_NAME = 'personix';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 @Injectable({ providedIn: 'root' })
 export class SqliteDatabase implements DatabasePort {

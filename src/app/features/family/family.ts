@@ -1,17 +1,27 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import type { FormControl } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import {
   BLOOD_GROUPS,
   BloodGroupRecord,
+  EmploymentHistoryRecord,
+  EmploymentMode,
+  EmploymentType,
   FamilyMember,
   HospitalOpRecord,
   ImportantItem,
   MedicalInsurance,
   NAKSHATRA_OPTIONS,
   RASI_OPTIONS,
+  ResidenceHistoryRecord,
 } from '../../core/models/app.models';
 import { FamilyRepository } from '../../core/repositories/family.repository';
 import { DialogService } from '../../core/services/dialog.service';
@@ -19,23 +29,61 @@ import { FeedbackService } from '../../core/services/feedback.service';
 import { AppIcon } from '../../shared/components/app-icon';
 import { SelectPicker, SelectPickerOption } from '../../shared/components/select-picker';
 import { TokenInput } from '../../shared/components/token-input';
+import { PartialDatePipe } from '../../shared/pipes/partial-date.pipe';
+import { buildPartialDate, partialDateSortKey } from '../../shared/utils/partial-date';
 import { commaSeparatedEmailsValidator } from '../../shared/validators/comma-separated-emails.validator';
 import {
   commaSeparatedContactNumbersValidator,
   contactNumberValidator,
 } from '../../shared/validators/contact-number.validator';
 
-type FamilyTab = 'members' | 'hospital' | 'insurance' | 'items' | 'blood';
+type FamilyTab = 'members' | 'hospital' | 'insurance' | 'items' | 'blood' | 'timeline';
+type TimelineKind = 'residence' | 'employment';
 type FamilyEditorRecord =
   | { readonly tab: 'members'; readonly value: FamilyMember }
   | { readonly tab: 'hospital'; readonly value: HospitalOpRecord }
   | { readonly tab: 'insurance'; readonly value: MedicalInsurance }
   | { readonly tab: 'items'; readonly value: ImportantItem }
-  | { readonly tab: 'blood'; readonly value: BloodGroupRecord };
+  | { readonly tab: 'blood'; readonly value: BloodGroupRecord }
+  | { readonly tab: 'timeline'; readonly kind: 'residence'; readonly value: ResidenceHistoryRecord }
+  | {
+      readonly tab: 'timeline';
+      readonly kind: 'employment';
+      readonly value: EmploymentHistoryRecord;
+    };
+
+interface TimelineDateFormValue {
+  readonly startYear: string;
+  readonly startMonth: string;
+  readonly startDay: string;
+  readonly endYear: string;
+  readonly endMonth: string;
+  readonly endDay: string;
+}
+
+function partialDateRangeValidator(control: AbstractControl): ValidationErrors | null {
+  const startDate = buildPartialDate({
+    year: String(control.get('startYear')?.value ?? ''),
+    month: String(control.get('startMonth')?.value ?? ''),
+    day: String(control.get('startDay')?.value ?? ''),
+  });
+  const current = control.get('current')?.value === true;
+  const endDate = buildPartialDate({
+    year: String(control.get('endYear')?.value ?? ''),
+    month: String(control.get('endMonth')?.value ?? ''),
+    day: String(control.get('endDay')?.value ?? ''),
+  });
+  if (!startDate) return { invalidStartDate: true };
+  if (current) return null;
+  if (!endDate) return { invalidEndDate: true };
+  return partialDateSortKey(endDate, true) < partialDateSortKey(startDate)
+    ? { dateOrder: true }
+    : null;
+}
 
 @Component({
   selector: 'app-family',
-  imports: [DatePipe, ReactiveFormsModule, AppIcon, SelectPicker, TokenInput],
+  imports: [DatePipe, ReactiveFormsModule, AppIcon, SelectPicker, TokenInput, PartialDatePipe],
   templateUrl: './family.html',
   styleUrl: './family.scss',
 })
@@ -56,6 +104,7 @@ export class Family {
     { id: 'insurance', label: 'Insurance', icon: 'insurance' },
     { id: 'items', label: 'Medicines & Toiletries', icon: 'medicine' },
     { id: 'blood', label: 'Blood Groups', icon: 'blood' },
+    { id: 'timeline', label: 'Life Timeline', icon: 'residence' },
   ];
   protected readonly rasis = RASI_OPTIONS;
   protected readonly nakshatras = NAKSHATRA_OPTIONS;
@@ -84,6 +133,29 @@ export class Family {
   protected readonly itemTypeOptions: readonly SelectPickerOption[] = [
     { value: 'medicine', label: 'Medicine' },
     { value: 'toiletry', label: 'Toiletry' },
+  ];
+  protected readonly monthOptions: readonly SelectPickerOption[] = [
+    { value: '', label: 'Month (optional)' },
+    ...['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(
+      (label, index) => ({ value: String(index + 1).padStart(2, '0'), label }),
+    ),
+  ];
+  protected readonly employmentTypeOptions: readonly SelectPickerOption[] = [
+    { value: 'full-time', label: 'Full time' },
+    { value: 'part-time', label: 'Part time' },
+    { value: 'freelance', label: 'Freelancer' },
+    { value: 'contract', label: 'Contract' },
+    { value: 'internship', label: 'Internship' },
+    { value: 'self-employed', label: 'Self-employed' },
+    { value: 'other', label: 'Other' },
+  ];
+  protected readonly employmentModeOptions: readonly SelectPickerOption[] = [
+    { value: 'office', label: 'Work from office' },
+    { value: 'hybrid', label: 'Hybrid' },
+    { value: 'wfh', label: 'Work from home' },
+    { value: 'remote', label: 'Remote' },
+    { value: 'field', label: 'Field work' },
+    { value: 'other', label: 'Other' },
   ];
   protected readonly memberOptions = computed<readonly SelectPickerOption[]>(() => [
     { value: '', label: 'Not linked' },
@@ -117,6 +189,14 @@ export class Family {
     const record = this.viewingRecord();
     return record?.tab === 'blood' ? record.value : null;
   });
+  protected readonly viewingResidence = computed(() => {
+    const record = this.viewingRecord();
+    return record?.tab === 'timeline' && record.kind === 'residence' ? record.value : null;
+  });
+  protected readonly viewingEmployment = computed(() => {
+    const record = this.viewingRecord();
+    return record?.tab === 'timeline' && record.kind === 'employment' ? record.value : null;
+  });
   protected readonly saving = signal(false);
   protected readonly query = this.formBuilder.nonNullable.control('');
   protected readonly members = signal<readonly FamilyMember[]>([]);
@@ -124,6 +204,16 @@ export class Family {
   protected readonly insurance = signal<readonly MedicalInsurance[]>([]);
   protected readonly items = signal<readonly ImportantItem[]>([]);
   protected readonly bloodRecords = signal<readonly BloodGroupRecord[]>([]);
+  protected readonly residences = signal<readonly ResidenceHistoryRecord[]>([]);
+  protected readonly employmentRecords = signal<readonly EmploymentHistoryRecord[]>([]);
+  protected readonly timelineViewKind = signal<TimelineKind>('residence');
+  protected readonly timelineKind = signal<TimelineKind>('residence');
+  protected readonly residenceTimeline = computed(() =>
+    this.sortTimelineRecords(this.residences()),
+  );
+  protected readonly employmentTimeline = computed(() =>
+    this.sortTimelineRecords(this.employmentRecords()),
+  );
 
   protected readonly memberForm = this.formBuilder.nonNullable.group({
     name: ['', Validators.required],
@@ -188,6 +278,40 @@ export class Family {
     lastVerifiedDate: [''],
     source: [''],
   });
+  protected readonly residenceForm = this.formBuilder.nonNullable.group(
+    {
+      location: ['', Validators.required],
+      fullAddress: [''],
+      contactNumber: ['', contactNumberValidator],
+      startYear: ['', [Validators.required, Validators.pattern(/^\d{4}$/)]],
+      startMonth: [''],
+      startDay: [''],
+      endYear: ['', Validators.pattern(/^\d{4}$/)],
+      endMonth: [''],
+      endDay: [''],
+      current: [false],
+      notes: [''],
+    },
+    { validators: partialDateRangeValidator },
+  );
+  protected readonly employmentForm = this.formBuilder.nonNullable.group(
+    {
+      companyName: ['', Validators.required],
+      jobTitle: [''],
+      place: ['', Validators.required],
+      employmentType: ['full-time' as EmploymentType, Validators.required],
+      employmentMode: ['office' as EmploymentMode, Validators.required],
+      startYear: ['', [Validators.required, Validators.pattern(/^\d{4}$/)]],
+      startMonth: [''],
+      startDay: [''],
+      endYear: ['', Validators.pattern(/^\d{4}$/)],
+      endMonth: [''],
+      endDay: [''],
+      current: [false],
+      notes: [''],
+    },
+    { validators: partialDateRangeValidator },
+  );
 
   constructor() {
     void this.load();
@@ -208,21 +332,28 @@ export class Family {
   }
   protected async load(): Promise<void> {
     const query = this.query.value;
-    const [members, hospitals, insurance, items, blood] = await Promise.all([
-      this.repository.members(query),
-      this.repository.hospitalRecords(query),
-      this.repository.insurance(query),
-      this.repository.importantItems(undefined, query),
-      this.repository.bloodGroups(query),
-    ]);
+    const [members, hospitals, insurance, items, blood, residences, employment] = await Promise.all(
+      [
+        this.repository.members(query),
+        this.repository.hospitalRecords(query),
+        this.repository.insurance(query),
+        this.repository.importantItems(undefined, query),
+        this.repository.bloodGroups(query),
+        this.repository.residences(query),
+        this.repository.employment(query),
+      ],
+    );
     this.members.set(members);
     this.hospitals.set(hospitals);
     this.insurance.set(insurance);
     this.items.set(items);
     this.bloodRecords.set(blood);
+    this.residences.set(residences);
+    this.employmentRecords.set(employment);
   }
   protected openAdd(): void {
     this.editingRecord.set(null);
+    if (this.activeTab() === 'timeline') this.timelineKind.set(this.timelineViewKind());
     this.resetActiveForm();
     this.panelOpen.set(true);
   }
@@ -341,6 +472,92 @@ export class Family {
   protected viewBloodGroup(record: BloodGroupRecord): void {
     this.viewingRecord.set({ tab: 'blood', value: record });
   }
+  protected async selectTimelineKind(kind: TimelineKind): Promise<void> {
+    if (this.editingRecord() || kind === this.timelineKind()) return;
+    const currentForm =
+      this.timelineKind() === 'residence' ? this.residenceForm : this.employmentForm;
+    if (currentForm.dirty) {
+      const result = await this.dialogs.open({
+        title: 'Discard unsaved changes?',
+        description: `Switching to ${kind} will clear the ${this.timelineKind()} information you entered.`,
+        confirmText: 'Discard & switch',
+        cancelText: 'Keep editing',
+        destructive: true,
+        icon: 'alert',
+      });
+      if (!result.confirmed) return;
+    }
+    this.timelineKind.set(kind);
+    if (kind === 'residence') this.resetResidenceForm();
+    else this.resetEmploymentForm();
+  }
+  protected selectTimelineView(kind: TimelineKind): void {
+    this.timelineViewKind.set(kind);
+  }
+  protected editResidence(record: ResidenceHistoryRecord): void {
+    this.activeTab.set('timeline');
+    this.timelineKind.set('residence');
+    this.viewingRecord.set(null);
+    this.editingRecord.set({ tab: 'timeline', kind: 'residence', value: record });
+    const start = this.partialDateParts(record.startDate);
+    const end = this.partialDateParts(record.endDate);
+    this.residenceForm.reset({
+      location: record.location,
+      fullAddress: record.fullAddress,
+      contactNumber: record.contactNumber,
+      startYear: start.year,
+      startMonth: start.month,
+      startDay: start.day,
+      endYear: end.year,
+      endMonth: end.month,
+      endDay: end.day,
+      current: record.current,
+      notes: record.notes,
+    });
+    this.panelOpen.set(true);
+  }
+  protected viewResidence(record: ResidenceHistoryRecord): void {
+    this.viewingRecord.set({ tab: 'timeline', kind: 'residence', value: record });
+  }
+  protected editEmployment(record: EmploymentHistoryRecord): void {
+    this.activeTab.set('timeline');
+    this.timelineKind.set('employment');
+    this.viewingRecord.set(null);
+    this.editingRecord.set({ tab: 'timeline', kind: 'employment', value: record });
+    const start = this.partialDateParts(record.startDate);
+    const end = this.partialDateParts(record.endDate);
+    this.employmentForm.reset({
+      companyName: record.companyName,
+      jobTitle: record.jobTitle,
+      place: record.place,
+      employmentType: record.employmentType,
+      employmentMode: record.employmentMode,
+      startYear: start.year,
+      startMonth: start.month,
+      startDay: start.day,
+      endYear: end.year,
+      endMonth: end.month,
+      endDay: end.day,
+      current: record.current,
+      notes: record.notes,
+    });
+    this.panelOpen.set(true);
+  }
+  protected viewEmployment(record: EmploymentHistoryRecord): void {
+    this.viewingRecord.set({ tab: 'timeline', kind: 'employment', value: record });
+  }
+  protected residenceCurrentChanged(): void {
+    if (this.residenceForm.controls.current.value) {
+      this.residenceForm.patchValue({ endYear: '', endMonth: '', endDay: '' });
+    }
+    this.residenceForm.updateValueAndValidity();
+  }
+  protected employmentCurrentChanged(): void {
+    if (this.employmentForm.controls.current.value) {
+      this.employmentForm.patchValue({ endYear: '', endMonth: '', endDay: '' });
+    }
+    this.employmentForm.updateValueAndValidity();
+  }
 
   protected async save(): Promise<void> {
     if (this.saving()) return;
@@ -421,6 +638,50 @@ export class Family {
           });
           break;
         }
+        case 'timeline': {
+          if (this.timelineKind() === 'residence') {
+            if (this.residenceForm.invalid) {
+              this.residenceForm.markAllAsTouched();
+              return;
+            }
+            const value = this.residenceForm.getRawValue();
+            const existing =
+              editing?.tab === 'timeline' && editing.kind === 'residence' ? editing.value : null;
+            await this.repository.saveResidence({
+              location: value.location.trim(),
+              fullAddress: value.fullAddress.trim(),
+              contactNumber: value.contactNumber.trim(),
+              startDate: this.formPartialDate(value, 'start'),
+              endDate: value.current ? '' : this.formPartialDate(value, 'end'),
+              current: value.current,
+              notes: value.notes.trim(),
+              archived: existing?.archived ?? false,
+              ...(existing ? { id: existing.id, createdAt: existing.createdAt } : {}),
+            });
+          } else {
+            if (this.employmentForm.invalid) {
+              this.employmentForm.markAllAsTouched();
+              return;
+            }
+            const value = this.employmentForm.getRawValue();
+            const existing =
+              editing?.tab === 'timeline' && editing.kind === 'employment' ? editing.value : null;
+            await this.repository.saveEmployment({
+              companyName: value.companyName.trim(),
+              jobTitle: value.jobTitle.trim(),
+              place: value.place.trim(),
+              employmentType: value.employmentType,
+              employmentMode: value.employmentMode,
+              startDate: this.formPartialDate(value, 'start'),
+              endDate: value.current ? '' : this.formPartialDate(value, 'end'),
+              current: value.current,
+              notes: value.notes.trim(),
+              archived: existing?.archived ?? false,
+              ...(existing ? { id: existing.id, createdAt: existing.createdAt } : {}),
+            });
+          }
+          break;
+        }
       }
       this.panelOpen.set(false);
       this.editingRecord.set(null);
@@ -487,6 +748,12 @@ export class Family {
         ? item.customBloodGroup || 'Blood group not recorded'
         : item.bloodGroup;
   }
+  protected employmentTypeLabel(value: EmploymentType): string {
+    return this.employmentTypeOptions.find((option) => option.value === value)?.label ?? value;
+  }
+  protected employmentModeLabel(value: EmploymentMode): string {
+    return this.employmentModeOptions.find((option) => option.value === value)?.label ?? value;
+  }
   protected call(number: string): void {
     window.location.href = `tel:${number.replace(/[^+\d]/g, '')}`;
   }
@@ -513,6 +780,64 @@ export class Family {
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
+  }
+  private formPartialDate(value: TimelineDateFormValue, prefix: 'start' | 'end'): string {
+    return buildPartialDate({
+      year: String(value[`${prefix}Year`] ?? ''),
+      month: String(value[`${prefix}Month`] ?? ''),
+      day: String(value[`${prefix}Day`] ?? ''),
+    });
+  }
+  private partialDateParts(value: string): {
+    readonly year: string;
+    readonly month: string;
+    readonly day: string;
+  } {
+    const [year = '', month = '', day = ''] = value.split('-');
+    return { year, month, day: day ? String(Number(day)) : '' };
+  }
+  private sortTimelineRecords<
+    T extends { readonly current: boolean; readonly startDate: string; readonly updatedAt: string },
+  >(records: readonly T[]): readonly T[] {
+    return [...records].sort((a, b) => {
+      if (a.current !== b.current) return a.current ? -1 : 1;
+      return (
+        partialDateSortKey(b.startDate).localeCompare(partialDateSortKey(a.startDate)) ||
+        b.updatedAt.localeCompare(a.updatedAt)
+      );
+    });
+  }
+  private resetResidenceForm(): void {
+    this.residenceForm.reset({
+      location: '',
+      fullAddress: '',
+      contactNumber: '',
+      startYear: '',
+      startMonth: '',
+      startDay: '',
+      endYear: '',
+      endMonth: '',
+      endDay: '',
+      current: false,
+      notes: '',
+    });
+  }
+  private resetEmploymentForm(): void {
+    this.employmentForm.reset({
+      companyName: '',
+      jobTitle: '',
+      place: '',
+      employmentType: 'full-time',
+      employmentMode: 'office',
+      startYear: '',
+      startMonth: '',
+      startDay: '',
+      endYear: '',
+      endMonth: '',
+      endDay: '',
+      current: false,
+      notes: '',
+    });
   }
   private resetActiveForm(): void {
     this.memberForm.reset({
@@ -578,5 +903,7 @@ export class Family {
       lastVerifiedDate: '',
       source: '',
     });
+    this.resetResidenceForm();
+    this.resetEmploymentForm();
   }
 }

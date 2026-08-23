@@ -199,6 +199,33 @@ export interface BloodGroupRecord extends ArchivableRecord {
   readonly source: string;
 }
 
+export interface ResidenceHistoryRecord extends ArchivableRecord {
+  readonly location: string;
+  readonly fullAddress: string;
+  readonly contactNumber: string;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly current: boolean;
+  readonly notes: string;
+}
+
+export type EmploymentType =
+  'full-time' | 'part-time' | 'freelance' | 'contract' | 'internship' | 'self-employed' | 'other';
+
+export type EmploymentMode = 'office' | 'hybrid' | 'wfh' | 'remote' | 'field' | 'other';
+
+export interface EmploymentHistoryRecord extends ArchivableRecord {
+  readonly companyName: string;
+  readonly jobTitle: string;
+  readonly place: string;
+  readonly employmentType: EmploymentType;
+  readonly employmentMode: EmploymentMode;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly current: boolean;
+  readonly notes: string;
+}
+
 export type VehicleType = 'car' | 'motorcycle' | 'scooter' | 'bicycle' | 'commercial' | 'other';
 
 export interface Vehicle extends ArchivableRecord {
@@ -322,6 +349,8 @@ export type DatabaseTable =
   | 'medical_insurance'
   | 'important_items'
   | 'blood_group_records'
+  | 'residence_history'
+  | 'employment_history'
   | 'vehicles'
   | 'notes'
   | 'note_tags'
@@ -341,6 +370,8 @@ export interface TableRecordMap {
   readonly medical_insurance: MedicalInsurance;
   readonly important_items: ImportantItem;
   readonly blood_group_records: BloodGroupRecord;
+  readonly residence_history: ResidenceHistoryRecord;
+  readonly employment_history: EmploymentHistoryRecord;
   readonly vehicles: Vehicle;
   readonly notes: Note;
   readonly note_tags: NoteTag;

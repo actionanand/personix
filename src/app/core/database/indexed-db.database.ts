@@ -3,7 +3,7 @@ import { DatabaseTable, TableRecordMap } from '../models/app.models';
 import { DATABASE_TABLES, DatabasePort } from './database.port';
 
 const DATABASE_NAME = 'personix';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 interface StoreDefinition {
   readonly name: DatabaseTable;
@@ -57,6 +57,24 @@ const STORES: readonly StoreDefinition[] = [
     indexes: [
       { name: 'bloodGroup', keyPath: 'bloodGroup' },
       { name: 'familyMemberId', keyPath: 'familyMemberId' },
+    ],
+  },
+  {
+    name: 'residence_history',
+    indexes: [
+      { name: 'startDate', keyPath: 'startDate' },
+      { name: 'current', keyPath: 'current' },
+      { name: 'archived', keyPath: 'archived' },
+    ],
+  },
+  {
+    name: 'employment_history',
+    indexes: [
+      { name: 'startDate', keyPath: 'startDate' },
+      { name: 'current', keyPath: 'current' },
+      { name: 'employmentType', keyPath: 'employmentType' },
+      { name: 'employmentMode', keyPath: 'employmentMode' },
+      { name: 'archived', keyPath: 'archived' },
     ],
   },
   {
