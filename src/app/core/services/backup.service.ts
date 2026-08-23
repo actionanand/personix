@@ -20,6 +20,8 @@ const MODULE_TABLES: Readonly<Record<BackupModule, readonly DatabaseTable[]>> = 
     'medical_insurance',
     'important_items',
     'blood_group_records',
+    'residence_history',
+    'employment_history',
   ],
   vehicles: ['vehicles'],
   notes: ['notes', 'note_tags'],

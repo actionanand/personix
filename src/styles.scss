@@ -207,7 +207,7 @@ textarea::placeholder {
   color: var(--muted);
   text-align: center;
 }
-.empty-state app-icon {
+.empty-state > app-icon {
   width: 2.5rem;
   height: 2.5rem;
   color: var(--primary);

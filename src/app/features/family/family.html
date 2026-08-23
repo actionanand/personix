@@ -1,13 +1,13 @@
 <header class="page-heading">
   <div>
-    <p class="eyebrow">Family & health</p>
+    <p class="eyebrow">Family, health & life</p>
     <h1 class="page-title">Separate records, one safe place</h1>
     <p class="page-subtitle">
-      Family, hospital, insurance and important-item records never mix with saved content.
+      Family, health and your personal history stay separate from saved content.
     </p>
   </div>
   <button type="button" class="button" (click)="openAdd()">
-    <app-icon name="plus" /> Add record
+    <app-icon name="plus" /> {{ activeTab() === 'timeline' ? 'Add timeline entry' : 'Add record' }}
   </button>
 </header>
 <nav class="tabs" aria-label="Family and health sections">
@@ -21,7 +21,9 @@
   <app-icon name="search" /><input
     type="search"
     aria-label="Search current family and health section"
-    placeholder="Search this section…"
+    [placeholder]="
+      activeTab() === 'timeline' ? 'Search places, companies and notes…' : 'Search this section…'
+    "
     [formControl]="query"
     (input)="load()"
   />
@@ -342,6 +344,202 @@
             This section records user-provided information only and gives no compatibility advice.
           </p>
         </div>
+      }
+    }
+    @case ('timeline') {
+      <div class="timeline-intro card">
+        <div class="timeline-intro-icon"><app-icon name="residence" /></div>
+        <div>
+          <p class="eyebrow">Your personal history</p>
+          <h2>Your residence and employment history</h2>
+          <p>
+            Residence and employment records belong to you—not to family members—and stay private on
+            this device.
+          </p>
+        </div>
+        <div class="timeline-counts" aria-label="Timeline summary">
+          <span
+            ><strong>{{ residences().length }}</strong> places</span
+          >
+          <span
+            ><strong>{{ employmentRecords().length }}</strong> jobs</span
+          >
+        </div>
+      </div>
+      <nav class="timeline-view-tabs" aria-label="Choose timeline">
+        <button
+          type="button"
+          [class.active]="timelineViewKind() === 'residence'"
+          [attr.aria-pressed]="timelineViewKind() === 'residence'"
+          (click)="selectTimelineView('residence')"
+        >
+          <app-icon name="residence" />
+          <span>Residence timeline</span>
+          <strong>{{ residenceTimeline().length }}</strong>
+        </button>
+        <button
+          type="button"
+          [class.active]="timelineViewKind() === 'employment'"
+          [attr.aria-pressed]="timelineViewKind() === 'employment'"
+          (click)="selectTimelineView('employment')"
+        >
+          <app-icon name="employment" />
+          <span>Employment timeline</span>
+          <strong>{{ employmentTimeline().length }}</strong>
+        </button>
+      </nav>
+      @if (
+        timelineViewKind() === 'residence'
+          ? !residenceTimeline().length
+          : !employmentTimeline().length
+      ) {
+        <div class="empty-state card">
+          <app-icon [name]="timelineViewKind() === 'residence' ? 'residence' : 'employment'" />
+          <h2>
+            {{
+              timelineViewKind() === 'residence'
+                ? 'No residence history yet'
+                : 'No employment history yet'
+            }}
+          </h2>
+          <p>
+            {{
+              timelineViewKind() === 'residence'
+                ? 'Add a place you lived to begin your residence timeline.'
+                : 'Add a company you worked for to begin your employment timeline.'
+            }}
+          </p>
+          <button type="button" class="button" (click)="openAdd()">
+            <app-icon name="plus" /> Add first entry
+          </button>
+        </div>
+      } @else if (timelineViewKind() === 'residence') {
+        <section class="timeline-section" aria-label="Residence timeline">
+          @if (residenceTimeline().length) {
+            <ol class="life-timeline" aria-label="Residence timeline">
+              @for (record of residenceTimeline(); track record.id) {
+                <li>
+                  <div class="timeline-marker"><app-icon name="residence" /></div>
+                  <article class="timeline-card card">
+                    <header>
+                      <div>
+                        <span class="timeline-kind">Residence</span>
+                        <span class="timeline-period">
+                          {{ record.startDate | partialDate }} —
+                          {{ record.current ? 'Present' : (record.endDate | partialDate) }}
+                        </span>
+                      </div>
+                      <div class="record-actions timeline-actions">
+                        <button
+                          type="button"
+                          class="icon-button"
+                          aria-label="View residence details"
+                          (click)="viewResidence(record)"
+                        >
+                          <app-icon name="eye" />
+                        </button>
+                        <button
+                          type="button"
+                          class="icon-button"
+                          aria-label="Edit residence"
+                          (click)="editResidence(record)"
+                        >
+                          <app-icon name="edit" />
+                        </button>
+                        <button
+                          type="button"
+                          class="icon-button danger-text"
+                          aria-label="Delete residence"
+                          (click)="remove('residence_history', record.id, record.location)"
+                        >
+                          <app-icon name="trash" />
+                        </button>
+                      </div>
+                    </header>
+                    <h2>{{ record.location }}</h2>
+                    @if (record.fullAddress) {
+                      <address>{{ record.fullAddress }}</address>
+                    } @else {
+                      <p class="timeline-muted">Full address not recorded</p>
+                    }
+                    @if (record.contactNumber) {
+                      <button
+                        type="button"
+                        class="timeline-contact"
+                        (click)="call(record.contactNumber)"
+                      >
+                        {{ record.contactNumber }}
+                      </button>
+                    }
+                    @if (record.notes) {
+                      <p class="timeline-note">{{ record.notes }}</p>
+                    }
+                  </article>
+                </li>
+              }
+            </ol>
+          }
+        </section>
+      } @else {
+        <section class="timeline-section employment-section" aria-label="Employment timeline">
+          @if (employmentTimeline().length) {
+            <ol class="life-timeline employment-timeline" aria-label="Employment timeline">
+              @for (record of employmentTimeline(); track record.id) {
+                <li class="employment-entry">
+                  <div class="timeline-marker"><app-icon name="employment" /></div>
+                  <article class="timeline-card card">
+                    <header>
+                      <div>
+                        <span class="timeline-kind">Employment</span>
+                        <span class="timeline-period">
+                          {{ record.startDate | partialDate }} —
+                          {{ record.current ? 'Present' : (record.endDate | partialDate) }}
+                        </span>
+                      </div>
+                      <div class="record-actions timeline-actions">
+                        <button
+                          type="button"
+                          class="icon-button"
+                          aria-label="View employment details"
+                          (click)="viewEmployment(record)"
+                        >
+                          <app-icon name="eye" />
+                        </button>
+                        <button
+                          type="button"
+                          class="icon-button"
+                          aria-label="Edit employment"
+                          (click)="editEmployment(record)"
+                        >
+                          <app-icon name="edit" />
+                        </button>
+                        <button
+                          type="button"
+                          class="icon-button danger-text"
+                          aria-label="Delete employment"
+                          (click)="remove('employment_history', record.id, record.companyName)"
+                        >
+                          <app-icon name="trash" />
+                        </button>
+                      </div>
+                    </header>
+                    <h2>{{ record.companyName }}</h2>
+                    <p class="timeline-role">
+                      {{ record.jobTitle || 'Role not recorded' }} · {{ record.place }}
+                    </p>
+                    <div class="details timeline-details">
+                      <span>{{ employmentTypeLabel(record.employmentType) }}</span>
+                      <span>{{ employmentModeLabel(record.employmentMode) }}</span>
+                    </div>
+                    @if (record.notes) {
+                      <p class="timeline-note">{{ record.notes }}</p>
+                    }
+                  </article>
+                </li>
+              }
+            </ol>
+          }
+        </section>
       }
     }
   }
@@ -699,6 +897,125 @@
           <app-icon name="edit" /> Edit details
         </button>
       </footer>
+    } @else if (viewingResidence(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="residence" /></div>
+          <div>
+            <p class="eyebrow">Residence history</p>
+            <h2 id="record-dialog-title">{{ record.location }}</h2>
+            <p>
+              {{ record.startDate | partialDate }} —
+              {{ record.current ? 'Present' : (record.endDate | partialDate) }}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close residence details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Location</dt>
+          <dd>{{ record.location }}</dd>
+        </div>
+        <div>
+          <dt>Period</dt>
+          <dd>
+            {{ record.startDate | partialDate }} —
+            {{ record.current ? 'Present' : (record.endDate | partialDate) }}
+          </dd>
+        </div>
+        <div class="member-notes">
+          <dt>Full address</dt>
+          <dd>{{ record.fullAddress || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Contact number</dt>
+          <dd>
+            @if (record.contactNumber) {
+              <button type="button" class="member-detail-link" (click)="call(record.contactNumber)">
+                {{ record.contactNumber }}
+              </button>
+            } @else {
+              Not recorded
+            }
+          </dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editResidence(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
+    } @else if (viewingEmployment(); as record) {
+      <header>
+        <div class="member-dialog-heading">
+          <div class="record-icon"><app-icon name="employment" /></div>
+          <div>
+            <p class="eyebrow">Employment history</p>
+            <h2 id="record-dialog-title">{{ record.companyName }}</h2>
+            <p>{{ record.jobTitle || 'Role not recorded' }} · {{ record.place }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close employment details"
+          (click)="closeRecordDetails()"
+        >
+          <app-icon name="close" />
+        </button>
+      </header>
+      <dl class="member-information">
+        <div>
+          <dt>Company</dt>
+          <dd>{{ record.companyName }}</dd>
+        </div>
+        <div>
+          <dt>Role</dt>
+          <dd>{{ record.jobTitle || 'Not recorded' }}</dd>
+        </div>
+        <div>
+          <dt>Place</dt>
+          <dd>{{ record.place }}</dd>
+        </div>
+        <div>
+          <dt>Period</dt>
+          <dd>
+            {{ record.startDate | partialDate }} —
+            {{ record.current ? 'Present' : (record.endDate | partialDate) }}
+          </dd>
+        </div>
+        <div>
+          <dt>Employment type</dt>
+          <dd>{{ employmentTypeLabel(record.employmentType) }}</dd>
+        </div>
+        <div>
+          <dt>Work mode</dt>
+          <dd>{{ employmentModeLabel(record.employmentMode) }}</dd>
+        </div>
+        <div class="member-notes">
+          <dt>Notes</dt>
+          <dd>{{ record.notes || 'No notes added' }}</dd>
+        </div>
+      </dl>
+      <footer>
+        <button type="button" class="button secondary" (click)="closeRecordDetails()">Close</button>
+        <button type="button" class="button" (click)="editEmployment(record)">
+          <app-icon name="edit" /> Edit details
+        </button>
+      </footer>
     }
   </section>
 }
@@ -713,7 +1030,13 @@
     <header>
       <h2>
         {{ editingRecord() ? 'Edit' : 'Add' }}
-        {{ tabs.find((tab) => tab.id === activeTab())?.label }}
+        {{
+          activeTab() === 'timeline'
+            ? timelineKind() === 'residence'
+              ? 'residence'
+              : 'employment'
+            : tabs.find((tab) => tab.id === activeTab())?.label
+        }}
       </h2>
       <button type="button" class="icon-button" aria-label="Close" (click)="close()">
         <app-icon name="close" />
@@ -967,6 +1290,272 @@
             </button>
           </div>
         </form>
+      }
+      @case ('timeline') {
+        @if (!editingRecord()) {
+          <div class="timeline-kind-picker" aria-label="Timeline entry type">
+            <button
+              type="button"
+              [class.active]="timelineKind() === 'residence'"
+              [attr.aria-pressed]="timelineKind() === 'residence'"
+              (click)="selectTimelineKind('residence')"
+            >
+              <app-icon name="residence" /> Residence
+            </button>
+            <button
+              type="button"
+              [class.active]="timelineKind() === 'employment'"
+              [attr.aria-pressed]="timelineKind() === 'employment'"
+              (click)="selectTimelineKind('employment')"
+            >
+              <app-icon name="employment" /> Employment
+            </button>
+          </div>
+        }
+        @if (timelineKind() === 'residence') {
+          <form [formGroup]="residenceForm" (ngSubmit)="save()">
+            <label
+              ><span class="field-label"
+                >Location <span class="required-marker" aria-hidden="true">*</span></span
+              ><input required formControlName="location" placeholder="City, area or place"
+            /></label>
+            <label
+              >Contact number (optional)<input
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                pattern="[0-9+ -]*"
+                formControlName="contactNumber"
+                (input)="sanitizeContactInput($event, residenceForm.controls.contactNumber)"
+              />
+              @if (
+                residenceForm.controls.contactNumber.touched &&
+                residenceForm.controls.contactNumber.invalid
+              ) {
+                <small class="field-error" role="alert">Use only digits, spaces, + and -.</small>
+              }
+            </label>
+            <label class="wide"
+              >Full address (optional)<textarea
+                formControlName="fullAddress"
+                placeholder="House, street, locality, city and postal code"
+              ></textarea>
+            </label>
+            <fieldset class="date-parts wide">
+              <legend>Stayed from <span class="required-marker" aria-hidden="true">*</span></legend>
+              <label
+                ><span class="field-label"
+                  >Year <span class="required-marker" aria-hidden="true">*</span></span
+                ><input
+                  required
+                  type="number"
+                  inputmode="numeric"
+                  formControlName="startYear"
+                  placeholder="2020"
+              /></label>
+              <label
+                >Month<app-select-picker
+                  formControlName="startMonth"
+                  [options]="monthOptions"
+                  sheetTitle="Choose start month" /></label
+              ><label
+                >Day<input
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  max="31"
+                  formControlName="startDay"
+                  placeholder="Optional"
+              /></label>
+            </fieldset>
+            <label class="check wide">
+              <input
+                type="checkbox"
+                formControlName="current"
+                (change)="residenceCurrentChanged()"
+              />
+              I currently live here
+            </label>
+            @if (!residenceForm.controls.current.value) {
+              <fieldset class="date-parts wide">
+                <legend>
+                  Stayed until <span class="required-marker" aria-hidden="true">*</span>
+                </legend>
+                <label
+                  ><span class="field-label"
+                    >Year <span class="required-marker" aria-hidden="true">*</span></span
+                  ><input
+                    required
+                    type="number"
+                    inputmode="numeric"
+                    formControlName="endYear"
+                    placeholder="2024"
+                /></label>
+                <label
+                  >Month<app-select-picker
+                    formControlName="endMonth"
+                    [options]="monthOptions"
+                    sheetTitle="Choose end month" /></label
+                ><label
+                  >Day<input
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    max="31"
+                    formControlName="endDay"
+                    placeholder="Optional"
+                /></label>
+              </fieldset>
+            }
+            @if (residenceForm.touched && residenceForm.hasError('invalidStartDate')) {
+              <p class="date-error wide" role="alert">
+                Enter a valid start year. A day also needs a month.
+              </p>
+            }
+            @if (residenceForm.touched && residenceForm.hasError('invalidEndDate')) {
+              <p class="date-error wide" role="alert">
+                Enter a valid end year, or mark this as your current residence.
+              </p>
+            }
+            @if (residenceForm.touched && residenceForm.hasError('dateOrder')) {
+              <p class="date-error wide" role="alert">
+                The end date cannot be before the start date.
+              </p>
+            }
+            <label class="wide"
+              >Notes<textarea
+                formControlName="notes"
+                placeholder="Landmarks, reason for moving or anything useful"
+              ></textarea>
+            </label>
+            <div class="form-actions wide">
+              <button class="button" type="submit" [disabled]="saving() || residenceForm.invalid">
+                {{ editingRecord() ? 'Update residence' : 'Save residence' }}
+              </button>
+            </div>
+          </form>
+        } @else {
+          <form [formGroup]="employmentForm" (ngSubmit)="save()">
+            <label
+              ><span class="field-label"
+                >Company name <span class="required-marker" aria-hidden="true">*</span></span
+              ><input required formControlName="companyName"
+            /></label>
+            <label>Job title / role<input formControlName="jobTitle" /></label>
+            <label
+              ><span class="field-label"
+                >Place <span class="required-marker" aria-hidden="true">*</span></span
+              ><input required formControlName="place" placeholder="City or office location"
+            /></label>
+            <label
+              ><span class="field-label"
+                >Employment type <span class="required-marker" aria-hidden="true">*</span></span
+              ><app-select-picker
+                formControlName="employmentType"
+                [options]="employmentTypeOptions"
+                sheetTitle="Choose employment type" /></label
+            ><label
+              ><span class="field-label"
+                >Work mode <span class="required-marker" aria-hidden="true">*</span></span
+              ><app-select-picker
+                formControlName="employmentMode"
+                [options]="employmentModeOptions"
+                sheetTitle="Choose work mode"
+            /></label>
+            <fieldset class="date-parts wide">
+              <legend>Worked from <span class="required-marker" aria-hidden="true">*</span></legend>
+              <label
+                ><span class="field-label"
+                  >Year <span class="required-marker" aria-hidden="true">*</span></span
+                ><input
+                  required
+                  type="number"
+                  inputmode="numeric"
+                  formControlName="startYear"
+                  placeholder="2020"
+              /></label>
+              <label
+                >Month<app-select-picker
+                  formControlName="startMonth"
+                  [options]="monthOptions"
+                  sheetTitle="Choose start month" /></label
+              ><label
+                >Day<input
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  max="31"
+                  formControlName="startDay"
+                  placeholder="Optional"
+              /></label>
+            </fieldset>
+            <label class="check wide">
+              <input
+                type="checkbox"
+                formControlName="current"
+                (change)="employmentCurrentChanged()"
+              />
+              I currently work here
+            </label>
+            @if (!employmentForm.controls.current.value) {
+              <fieldset class="date-parts wide">
+                <legend>
+                  Worked until <span class="required-marker" aria-hidden="true">*</span>
+                </legend>
+                <label
+                  ><span class="field-label"
+                    >Year <span class="required-marker" aria-hidden="true">*</span></span
+                  ><input
+                    required
+                    type="number"
+                    inputmode="numeric"
+                    formControlName="endYear"
+                    placeholder="2024"
+                /></label>
+                <label
+                  >Month<app-select-picker
+                    formControlName="endMonth"
+                    [options]="monthOptions"
+                    sheetTitle="Choose end month" /></label
+                ><label
+                  >Day<input
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    max="31"
+                    formControlName="endDay"
+                    placeholder="Optional"
+                /></label>
+              </fieldset>
+            }
+            @if (employmentForm.touched && employmentForm.hasError('invalidStartDate')) {
+              <p class="date-error wide" role="alert">
+                Enter a valid start year. A day also needs a month.
+              </p>
+            }
+            @if (employmentForm.touched && employmentForm.hasError('invalidEndDate')) {
+              <p class="date-error wide" role="alert">
+                Enter a valid end year, or mark this as your current job.
+              </p>
+            }
+            @if (employmentForm.touched && employmentForm.hasError('dateOrder')) {
+              <p class="date-error wide" role="alert">
+                The end date cannot be before the start date.
+              </p>
+            }
+            <label class="wide"
+              >Notes<textarea
+                formControlName="notes"
+                placeholder="Team, responsibilities, achievements or useful context"
+              ></textarea>
+            </label>
+            <div class="form-actions wide">
+              <button class="button" type="submit" [disabled]="saving() || employmentForm.invalid">
+                {{ editingRecord() ? 'Update employment' : 'Save employment' }}
+              </button>
+            </div>
+          </form>
+        }
       }
     }
   </section>

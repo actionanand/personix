@@ -28,6 +28,8 @@ export const DATABASE_TABLES: readonly DatabaseTable[] = [
   'medical_insurance',
   'important_items',
   'blood_group_records',
+  'residence_history',
+  'employment_history',
   'vehicles',
   'notes',
   'note_tags',
